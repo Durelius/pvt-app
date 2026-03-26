@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"github.com/gorilla/mux"
 )
@@ -20,11 +22,20 @@ func proxyTo(target string) http.HandlerFunc {
 func main() {
 	r := mux.NewRouter()
 
-	// Example of API gateway routing to microservices via reverse proxy.
-	//we should probably control these via env vars
-	r.PathPrefix("/api/users").HandlerFunc(proxyTo("http://user-service:8081"))
-	r.PathPrefix("/api/orders").HandlerFunc(proxyTo("http://order-service:8082"))
-	r.PathPrefix("/api/products").HandlerFunc(proxyTo("http://product-service:8083"))
+	entries, err := os.ReadDir("/services/")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defaultPort := 8080
+	for i, e := range entries {
+		port := i + 1 + defaultPort
+		name := e.Name()
+		serviceURL := fmt.Sprintf("http://%s-service:%d", name, port)
+		pathPrefix := fmt.Sprintf("/api/%s", name)
+		r.PathPrefix(pathPrefix).HandlerFunc(proxyTo(serviceURL))
+		log.Printf("running rev proxy to service %s on %s", name, serviceURL)
+	}
 
 	log.Println("gateway running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
