@@ -27,12 +27,10 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	defaultPort := 8080
-	for i, e := range entries {
-		port := i + 1 + defaultPort
+	for _, e := range entries {
 		name := e.Name()
 		pathPrefix := fmt.Sprintf("/api/%s", name)
-		serviceURL := fmt.Sprintf("http://%s-service:%d", name, port)
+		serviceURL := fmt.Sprintf("http://%s:8080", name)
 		r.PathPrefix(pathPrefix).HandlerFunc(proxyTo(serviceURL))
 		logger.Infof("running rev proxy to service %s on %s", name, serviceURL)
 	}
