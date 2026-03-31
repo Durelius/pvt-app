@@ -12,8 +12,8 @@ import (
 )
 
 func proxyTo(target string) http.HandlerFunc {
-	url, _ := url.Parse(target)
-	proxy := httputil.NewSingleHostReverseProxy(url)
+	URL, _ := url.Parse(target)
+	proxy := httputil.NewSingleHostReverseProxy(URL)
 	return func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	}
