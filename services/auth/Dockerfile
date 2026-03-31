@@ -13,10 +13,9 @@ RUN go install github.com/air-verse/air@latest
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the Go modules and source code into the container
-COPY go.mod go.sum ./
-RUN go mod tidy
 
+# COPY ../go.mod ../go.sum ./
+# RUN go mod tidy
 # Copy the rest of the application code into the container
 COPY . .
 

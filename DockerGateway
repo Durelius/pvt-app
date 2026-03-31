@@ -1,0 +1,25 @@
+
+# Use the official Go image from Docker Hub
+FROM golang:1.25-alpine
+
+
+
+# Install Air for live-reloading
+RUN apk add --no-cache gcc musl-dev git
+
+RUN GOPROXY=direct go install github.com/air-verse/air@latest
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the Go modules and source code into the container
+COPY go.mod go.sum ./
+RUN go mod tidy
+
+# Copy the rest of the application code into the container
+COPY . .
+
+# Expose the necessary port (8086 in your case)
+EXPOSE 8080
+
+# Command to run Air (start Go app with live-reloading)
+CMD ["sh", "-c", "cd ./api-gateway && air"]

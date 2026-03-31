@@ -1,0 +1,4 @@
+github.com/durelius/go-prodlog v0.0.6 h1:xtG/4NOWMaoC12kN05cgv7nn0EmdTv0awJLwsbTEmxA=
+github.com/durelius/go-prodlog v0.0.6/go.mod h1:6jFhMPGdzQ0yT4wxD5ay9H5XD6rwkbZYzPQkaFmihIg=
+github.com/gorilla/mux v1.8.1 h1:TuBL49tXwgrFYWhqrNgrUNEY92u81SPhu7sTdzQEiWY=
+github.com/gorilla/mux v1.8.1/go.mod h1:AKf9I4AEqPTmMytcMc0KkNouC66V3BtZ4qD5fmWSiMQ=
