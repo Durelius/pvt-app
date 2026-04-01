@@ -24,4 +24,4 @@ ARG SERVICE_NAME
 EXPOSE 8080
 
 # Command to run Air (start Go app with live-reloading)
-CMD ["sh", "-c", "cd ./services/${SERVICE_NAME} && air"]
+CMD ["sh", "-c", "cd ./backend/services/${SERVICE_NAME} && air"]
