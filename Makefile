@@ -1,4 +1,4 @@
-.PHONY: up down build generate
+.PHONY: up down build generate flutter
 
 BASE_PORT ?= 8080
 
@@ -14,3 +14,6 @@ down:
 
 build: generate
 	docker compose up --build
+
+flutter:
+	cd frontend && flutter run

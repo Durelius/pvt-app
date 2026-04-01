@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 8080
 
 # Command to run Air (start Go app with live-reloading)
-CMD ["sh", "-c", "cd ./api-gateway && air"]
+CMD ["sh", "-c", "cd ./backend/api-gateway && air"]
