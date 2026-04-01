@@ -5,12 +5,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 
-	logger "github.com/durelius/go-prodlog"
 	"github.com/gorilla/mux"
 )
 
@@ -27,7 +27,7 @@ func main() {
 
 	entries, err := os.ReadDir("../services/")
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 	api := r.PathPrefix("/api").Subrouter()
 
@@ -36,13 +36,13 @@ func main() {
 		pathPrefix := fmt.Sprintf("/api/%s", name)
 		serviceURL := fmt.Sprintf("http://%s:8080", name)
 		r.PathPrefix(pathPrefix).HandlerFunc(proxyTo(serviceURL))
-		logger.Infof("running rev proxy to service %s on %s", name, serviceURL)
+		log.Printf("running rev proxy to service %s on %s", name, serviceURL)
 	}
 
 	api.HandleFunc("/health", healthHandler).Methods(http.MethodGet)
 
-	logger.Info("gateway running on :8080")
-	logger.Fatal(http.ListenAndServe(":8080", r))
+	log.Print("gateway running on :8080")
+	log.Fatal(http.ListenAndServe(":8080", r))
 
 }
 

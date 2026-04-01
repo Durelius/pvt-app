@@ -1,4 +1,4 @@
-.PHONY: up down build generate flutter
+.PHONY: up down build generate flutter ios android
 
 BASE_PORT ?= 8080
 
@@ -17,3 +17,9 @@ build: generate
 
 flutter:
 	cd frontend && flutter run
+
+ios:
+	cd frontend && flutter emulators --launch apple_ios_simulator
+
+android:
+	emulator -avd $(shell emulator -list-avds | head -1)

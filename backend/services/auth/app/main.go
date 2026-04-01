@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
-	logger "github.com/durelius/go-prodlog"
 	"github.com/gorilla/mux"
 )
 
@@ -20,8 +20,8 @@ func main() {
 	sub.HandleFunc("/example", exampleHandler).Methods(http.MethodGet)
 
 	port := ":8080"
-	logger.Infof("%s listening on %s", serviceName, port)
-	logger.Fatal(http.ListenAndServe(port, r))
+	log.Printf("%s listening on %s", serviceName, port)
+	log.Fatal(http.ListenAndServe(port, r))
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
