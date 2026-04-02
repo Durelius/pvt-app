@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
@@ -41,7 +43,6 @@ class MyHomePage extends StatefulWidget {
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
   // how it looks.
-
   // This class is the configuration for the state. It holds the values (in this
   // case the title) provided by the parent (in this case the App widget) and
   // used by the build method of the State. Fields in a Widget subclass are
@@ -55,6 +56,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
+  Set<String> selections = {'Profile', 'Plan', 'Saved'};  
 
   void _incrementCounter() {
     setState(() {
@@ -85,7 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: Center(
+      body: Center( 
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
         child: Column(
@@ -109,14 +111,29 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+            Row(mainAxisAlignment: .center,
+            spacing: 10,            
+            children:[
+              SegmentedButton<dynamic>(segments : const [
+                ButtonSegment(value: 1,   label: Text('Profile',
+              ), icon: Icon(Icons.person)),      
+                ButtonSegment(value: 2, label: Text('Plan'), icon: Icon(Icons.add)),
+                ButtonSegment(value: 3,  label: Text('Saved'), icon: Icon(Icons.bookmark)),
+              ],
+              selected: selections,
+              onSelectionChanged: (newSelection) {
+                //setState(() => selection = newSelection);
+              } ),
+              FloatingActionButton(
+                onPressed: _incrementCounter,
+                tooltip: 'Increment',
+                child: const Icon(Icons.add),
+                ),
+            ]),            
+          ]   
+        ),        
+      ),       
     );
   }
 }
+
