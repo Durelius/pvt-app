@@ -15,7 +15,6 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       theme: ThemeData(
         // This is the theme of your application.
-        //
         // TRY THIS: Try running your application with "flutter run". You'll see
         // the application has a purple toolbar. Then, without quitting the app,
         // try changing the seedColor in the colorScheme below to Colors.green
@@ -32,7 +31,7 @@ class MyApp extends StatelessWidget {
         colorScheme: .fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'Mitten Prototype Page'),
     );
   }
 }
@@ -56,7 +55,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  Set<String> selections = {'Profile', 'Plan', 'Saved'};  
+  Set<String> selections = {'Profile'};  
+  int currentPageIndex = 0;
 
   void _incrementCounter() {
     setState(() {
@@ -71,21 +71,31 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final ThemeData theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+      bottomNavigationBar: NavigationBar(
+        onDestinationSelected: (int index) {
+          setState(() {
+            currentPageIndex = index;
+          });
+        },
+        indicatorColor: Color(0xFF99D98C),
+        selectedIndex: currentPageIndex,
+        destinations: const <Widget>[
+          NavigationDestination(
+            selectedIcon: Icon(Icons.home),
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon:  Icon(Icons.add),
+            label: 'Plan',
+          ),
+          NavigationDestination(
+            icon: Badge(label: Text('2'), child: Icon(Icons.bookmark)),
+            label: 'Saved',
+          ),
+        ],
       ),
       body: Center( 
         // Center is a layout widget. It takes a single child and positions it
@@ -106,33 +116,62 @@ class _MyHomePageState extends State<MyHomePage> {
           // wireframe for each widget.
           mainAxisAlignment: .center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            Row(mainAxisAlignment: .center,
-            spacing: 10,            
-            children:[
-              SegmentedButton<dynamic>(segments : const [
-                ButtonSegment(value: 1,   label: Text('Profile',
-              ), icon: Icon(Icons.person)),      
-                ButtonSegment(value: 2, label: Text('Plan'), icon: Icon(Icons.add)),
-                ButtonSegment(value: 3,  label: Text('Saved'), icon: Icon(Icons.bookmark)),
-              ],
-              selected: selections,
-              onSelectionChanged: (newSelection) {
-                //setState(() => selection = newSelection);
-              } ),
+            
               FloatingActionButton(
                 onPressed: _incrementCounter,
                 tooltip: 'Increment',
                 child: const Icon(Icons.add),
                 ),
-            ]),            
-          ]   
+                SizedBox(height:10),
+            const Text('You have pushed the button this many times:'),
+            Text(
+              '$_counter',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            SizedBox(height:20),
+            Row(mainAxisAlignment: .center,
+            spacing: 10,            
+            children:[
+              SegmentedButton<dynamic>(segments : const [
+                ButtonSegment(value: 'Profile',   label: Text('Profile',
+              ), icon: Icon(Icons.person)),      
+                ButtonSegment(value: 'Plan', label: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(height: 5),
+                    Icon(Icons.add, size: 30),
+                    //SizedBox(height: 1),
+                    Text('Plan', style: TextStyle(fontSize: 10)),
+                    SizedBox(height: 5),                   
+                    ],                    
+                    ),),
+                ButtonSegment(value: 'Saved',  label: Text('Saved'), icon: Icon(Icons.bookmark)),
+              ],
+              selected: selections,
+              style: SegmentedButton.styleFrom(
+      
+        //foregroundColor: Color(0xFF99D98C),
+        //selectedBackgroundColor: Colors.white,
+        //selectedForegroundColor: Colors.green,
+        overlayColor: Color(0xFF99D98C),
+        shadowColor: Color(0xFF99D98C)),
+        
+              
+              onSelectionChanged: (newSelection) {
+                //setState(() => selection = newSelection);
+              }                  
+              ),
+              
+            ]),
+
+
+            
+          ]
+          
+             
         ),        
-      ),       
+      ), 
+            
     );
   }
 }
