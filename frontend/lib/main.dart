@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:mitten/pages/home.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,33 +47,21 @@ class MyHomePage extends StatefulWidget {
   // used by the build method of the State. Fields in a Widget subclass are
   // always marked "final".
 
-  final String title;
+  final String title;  
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  Set<String> selections = {'Profile'};  
   int currentPageIndex = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  String heading = "Mitten Prototype Page";
+  int savedBadgeCount = 1;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Scaffold(
-
       appBar: AppBar(
         // TRY THIS: Try changing the color here to a specific color (to
         // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
@@ -102,84 +90,16 @@ class _MyHomePageState extends State<MyHomePage> {
             label: 'Plan',
           ),
           NavigationDestination(
-            icon: Badge(label: Text('2'), child: Icon(Icons.bookmark)),
-            label: 'Saved',
+            icon: Badge(label: Text('$savedBadgeCount'), child: const Icon(Icons.bookmark)),
+            label: 'Saved locations',
           ),
         ],
       ),
       body: <Widget>[
-        
-        Card(
-          color: Colors.white,
-          child:Center(
-       
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [            
-              FloatingActionButton(
-                onPressed: _incrementCounter,
-                tooltip: 'Increment',
-                child: const Icon(Icons.add),
-                ),
-                SizedBox(height:10),
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            SizedBox(height:20),
-            Row(mainAxisAlignment: .center,
-            spacing: 10,            
-            children:[
-              SegmentedButton<dynamic>(segments : const [
-                ButtonSegment(value: 'Profile',   label: Text('Profile',
-              ), icon: Icon(Icons.person)),      
-                ButtonSegment(value: 'Plan', label: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(height: 5),
-                    Icon(Icons.add, size: 30),
-                    //SizedBox(height: 1),
-                    Text('Plan', style: TextStyle(fontSize: 10)),
-                    SizedBox(height: 5),                   
-                    ],                    
-                    ),),
-                ButtonSegment(value: 'Saved',  label: Text('Saved'), icon: Icon(Icons.bookmark)),
-              ],
-              selected: selections,
-              style: SegmentedButton.styleFrom(
-      
-        //foregroundColor: Color(0xFF99D98C),
-        //selectedBackgroundColor: Colors.white,
-        //selectedForegroundColor: Colors.green,
-        overlayColor: Color(0xFF99D98C),
-        shadowColor: Color(0xFF99D98C)),   
-              onSelectionChanged: (newSelection) {
-                //setState(() => selection = newSelection);
-              }                  
-              ),
-            ]),            
-          ]             
-        ),
-      ),
-      ),
-      // this is the planning page
-       Card(        
+        // homepage from home.dart
+        HomePage(onIncrement: () => setState(() => savedBadgeCount++)),
+        // this is the planning page
+        Card(        
           color: Colors.transparent,
           shadowColor: Colors.transparent,
           margin: const EdgeInsets.all(8.0),
@@ -190,19 +110,23 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
         ),
         // this is the saved page
-         Card(
+        Card(
           color: Colors.transparent,
           shadowColor: Colors.transparent,
           margin: const EdgeInsets.all(8.0),
           child: SizedBox.expand(
             child: Center(
-              child: Text('Saved locations', style: theme.textTheme.titleLarge),
+              child: Text(' $savedBadgeCount new saved locations', style: theme.textTheme.titleLarge),
             ),
           ),
         ),
-      ][currentPageIndex], 
-            
+      ][currentPageIndex],
     );
   }
+
+  
+  
+
+    
 }
 
