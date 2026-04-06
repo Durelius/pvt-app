@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mitten/pages/home.dart';
+import 'package:mitten/pages/plan.dart';
 
 void main() {
   runApp(const MyApp());
@@ -79,7 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         indicatorColor: Color(0xFF99D98C),
         selectedIndex: currentPageIndex,
-        destinations: const <Widget>[
+        destinations: <Widget>[
           NavigationDestination(
             selectedIcon: Icon(Icons.home),
             icon: Icon(Icons.home_outlined),
@@ -99,16 +100,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // homepage from home.dart
         HomePage(onIncrement: () => setState(() => savedBadgeCount++)),
         // this is the planning page
-        Card(        
-          color: Colors.transparent,
-          shadowColor: Colors.transparent,
-          margin: const EdgeInsets.all(8.0),
-          child: SizedBox.expand(
-            child: Center(
-              child: Text('Plan', style: theme.textTheme.titleLarge),
-            ),
-          ),
-        ),
+        const PlanPage(),
         // this is the saved page
         Card(
           color: Colors.transparent,
