@@ -79,7 +79,7 @@ class _MyHomePageState extends State<MyHomePage> {
         },
         indicatorColor: Color(0xFF99D98C),
         selectedIndex: currentPageIndex,
-        destinations: const <Widget>[
+        destinations: <Widget>[
           NavigationDestination(
             selectedIcon: Icon(Icons.home),
             icon: Icon(Icons.home_outlined),
@@ -91,7 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           NavigationDestination(
             icon: Badge(label: Text('$savedBadgeCount'), child: const Icon(Icons.bookmark)),
-            label: 'Saved locations',
+            label: 'Saved',
           ),
         ],
       ),
