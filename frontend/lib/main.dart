@@ -92,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           NavigationDestination(
             icon: Badge(label: Text('$savedBadgeCount'), child: const Icon(Icons.bookmark)),
-            label: 'Saved locations',
+            label: 'Saved',
           ),
         ],
       ),
