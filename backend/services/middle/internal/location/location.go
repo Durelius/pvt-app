@@ -17,8 +17,8 @@ type Address struct {
 }
 
 func (a *Address) Point() (*Point, error) {
-	if len(a.Street) == 0 || len(a.Zip) == 0 {
-		return nil, fmt.Errorf("Street or zip is empty")
+	if len(a.Street) == 0 || len(a.Zip) == 0 || len(a.City) == 0 {
+		return nil, fmt.Errorf("Street, city or zip is empty")
 	}
 
 	lat, lon, err := geocoding.AddressSearch(a.Street, a.City, a.Zip)
