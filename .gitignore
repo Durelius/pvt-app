@@ -2,4 +2,5 @@
 .env
 /tmp
 **/tmp/
-docker-compose
+docker-compose.yml
+
