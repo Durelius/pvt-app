@@ -2,6 +2,7 @@ package location
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/durelius/pvt-app/backend/services/middle/internal/geocoding"
 )
@@ -21,6 +22,9 @@ func (a *Address) Point() (*Point, error) {
 		return nil, fmt.Errorf("Street, city or zip is empty")
 	}
 
+	log.Println(a.City)
+	log.Println(a.Street)
+	log.Println(a.Zip)
 	lat, lon, err := geocoding.AddressSearch(a.Street, a.City, a.Zip)
 	if err != nil {
 		return nil, err

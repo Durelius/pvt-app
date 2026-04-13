@@ -12,7 +12,7 @@ RUN GOPROXY=direct go install github.com/air-verse/air@latest
 WORKDIR /app
 
 # Copy the Go modules and source code into the container
-COPY go.mod go.sum ./
+COPY go.mod go.sum .env ./
 RUN go mod tidy
 
 # Copy the rest of the application code into the container

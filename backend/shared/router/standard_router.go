@@ -33,7 +33,7 @@ func Init() (router, authRouter *mux.Router) {
 	port := ":8080"
 	log.Printf("%s initialized on %s", serviceName, port)
 	// log.Fatal(http.ListenAndServe(port, r))
-	return r, auth
+	return api, auth
 
 }
 

@@ -1,18 +1,14 @@
 package main
 
 import (
-	"log"
-
+	"github.com/durelius/pvt-app/backend/services/middle/internal/controller"
 	standardrouter "github.com/durelius/pvt-app/backend/shared/router"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println(err)
-	}
 
 	router, _ := standardrouter.Init()
 	// add endpoints here
+	router.HandleFunc("/middleplaces", controller.MiddleEndpoint)
 	standardrouter.Start(router)
 }

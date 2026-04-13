@@ -1,4 +1,4 @@
-package nearby
+package places
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
 )
@@ -48,6 +49,7 @@ type LocalizedText struct {
 
 func Nearby(point location.Point, locationType string) ([]Place, error) {
 
+	apiKey := os.Getenv("PLACES_KEY")
 	reqBody := NearbySearchRequest{
 		IncludedTypes:  []string{locationType},
 		MaxResultCount: 5,
