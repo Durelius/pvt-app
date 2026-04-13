@@ -1,36 +1,47 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/durelius/pvt-app/backend/services/sl/internal/searchaddress"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
+	standardrouter "github.com/durelius/pvt-app/backend/shared/router"
 )
 
 func main() {
-	r := mux.NewRouter()
 
-	serviceName := os.Getenv("SERVICE_NAME")
-	sub := r.PathPrefix(fmt.Sprintf("/api/%s", serviceName)).Subrouter()
-
-	sub.HandleFunc("/health", healthHandler).Methods(http.MethodGet)
-
-	sub.HandleFunc("/example", exampleHandler).Methods(http.MethodGet)
-
-	port := ":8080"
-	log.Printf("%s listening on %s", serviceName, port)
-	log.Fatal(http.ListenAndServe(port, r))
+	router, _ := standardrouter.Init()
+	// add endpoints here
+	router.HandleFunc("/trip", slEndpoint).Methods("GET")
+	standardrouter.Start(router)
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
-}
+func slEndpoint(w http.ResponseWriter, r *http.Request) {
 
-func exampleHandler(w http.ResponseWriter, r *http.Request) {
+	rawFrom := r.URL.Query().Get("from")
+	rawTo := r.URL.Query().Get("to")
+	var from location.Address
+	var to location.Address
+
+	if err := json.Unmarshal([]byte(rawFrom), &from); err != nil {
+		http.Error(w, "invalid from format", http.StatusBadRequest)
+		return
+	}
+	if err := json.Unmarshal([]byte(rawTo), &to); err != nil {
+		http.Error(w, "invalid to format", http.StatusBadRequest)
+		return
+	}
+
+	res, err := searchaddress.AddressSearch(from, to)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "failed to search address at SL", http.StatusBadRequest)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "hello from example"}`))
+	json.NewEncoder(w).Encode(res)
 }

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"

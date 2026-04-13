@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/middle"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/places"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {

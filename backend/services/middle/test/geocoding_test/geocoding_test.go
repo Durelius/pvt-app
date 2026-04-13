@@ -3,8 +3,8 @@ package geocoding_test
 import (
 	"testing"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/geocoding"
-	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
+	"github.com/durelius/pvt-app/backend/shared/models/geocoding"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 // Råstensgatan 2, sumpan
@@ -20,7 +20,7 @@ func TestCoordinateToAddress(t *testing.T) {
 }
 func TestAddressToCoordinate(t *testing.T) {
 
-	_, _, err := geocoding.AddressSearch("Råstensgatan 2", "172 70", "Sundbyberg")
+	_, _, err := geocoding.AddressSearch("Råstensgatan 2", "Sundbyberg", "172 70")
 	if err != nil {
 		t.Errorf("Error getting coordinate: %v", err)
 	}

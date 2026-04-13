@@ -3,7 +3,7 @@ package location
 import (
 	"fmt"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/geocoding"
+	"github.com/durelius/pvt-app/backend/shared/models/geocoding"
 )
 
 type Point struct {
