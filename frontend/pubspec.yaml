@@ -38,6 +38,13 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # mapbox denpendecies, debouncer to minimize sent requests
+  http: ^1.2.0
+  mapbox_maps_flutter: ^2.5.1
+  flutter_dotenv: ^5.2.1
+  geolocator: ^13.0.2
+  flutter_debouncer: ^1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -59,6 +66,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:
