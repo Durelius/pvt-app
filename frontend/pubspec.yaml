@@ -28,7 +28,8 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-
+  location: ^5.0.0
+  loading_animation_widget: ^1.2.0
   flutter_native_splash: ^2.4.7
 
   flutter:

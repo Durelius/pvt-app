@@ -66,5 +66,23 @@ services:
       db:
         condition: service_healthy
 
+  middle:
+    build:
+      context: .
+      dockerfile: DockerService
+      args:
+        SERVICE_NAME: middle
+    container_name: middle
+    ports:
+      - "8083:8080"
+    volumes:
+      - .:/app
+      - /app/bin
+    environment:
+      - SERVICE_NAME=middle
+    depends_on:
+      db:
+        condition: service_healthy
+
 volumes:
   db-data:
