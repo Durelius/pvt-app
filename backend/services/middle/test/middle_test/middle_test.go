@@ -1,12 +1,10 @@
 package middletest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/middle"
-	places "github.com/durelius/pvt-app/backend/services/middle/internal/places"
 )
 
 // Råstensgatan 2, sumpan
@@ -29,12 +27,6 @@ func TestAverageMiddlePoint(t *testing.T) {
 	if *average != expectedMiddle {
 		t.Errorf("Average return (%v) is not same as expected average (%v).", *average, expectedMiddle)
 	}
-
-	nearby, err := places.Nearby(*average, "cafe")
-	if err != nil {
-		t.Error(err)
-	}
-	log.Println(nearby)
 
 }
 func TestMedianMiddlePoint(t *testing.T) {
