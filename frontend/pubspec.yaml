@@ -99,4 +99,6 @@ flutter_native_splash:
 flutter_icons:
   android: true
   ios: true
-  image_path: assets/lightblue.png
+  image_path: assets/mittenicon.png
+  adaptive_icon_background: "#99D98C"
+  adaptive_icon_foreground: assets/mittenicon.png
