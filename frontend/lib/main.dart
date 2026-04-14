@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 void main() {
   runApp(const MyApp());
