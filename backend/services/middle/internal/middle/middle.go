@@ -5,7 +5,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 func Average(points []location.Point) (*location.Point, error) {

@@ -3,8 +3,8 @@ package middletest
 import (
 	"testing"
 
-	"github.com/durelius/pvt-app/backend/services/middle/internal/location"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/middle"
+	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 // Råstensgatan 2, sumpan
@@ -19,7 +19,6 @@ var rich = location.Point{Latitude: 59.335724925744856, Longitude: 18.0872938712
 var points = []location.Point{sumpan, handen, rich}
 
 func TestAverageMiddlePoint(t *testing.T) {
-
 	average, err := middle.Average(points)
 	if err != nil {
 		t.Errorf("Error getting average: %v", err)

@@ -12,7 +12,7 @@ import (
 const API_URL_ADDRESS_SEARCH = "https://nominatim.openstreetmap.org/search?street=%s&city=%s&postalcode=%s&countrycodes=se&format=json&limit=1&addressdetails=1"
 const API_URL_REVERSE_SEARCH = "https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&limit=1&addressdetails=1"
 
-func AddressSearch(address, zip, city string) (latitude float64, longitude float64, err error) {
+func AddressSearch(address, city, zip string) (latitude float64, longitude float64, err error) {
 	query := fmt.Sprintf(API_URL_ADDRESS_SEARCH, url.QueryEscape(address), url.QueryEscape(city), url.QueryEscape(zip))
 	req, err := http.NewRequest("GET", query, nil)
 	if err != nil {
