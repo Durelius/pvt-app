@@ -3,7 +3,7 @@
 BASE_PORT=8080
 NEXT_PORT=$((BASE_PORT + 1))
 
-cat > docker-compose.yml <<EOF
+cat >docker-compose.yml <<EOF
 services:
   api-gateway:
     build:
@@ -15,6 +15,8 @@ services:
     volumes:
       - .:/app
       - /app/bin
+    env_file:
+      - .env
     environment:
       - SERVICE_NAME=api-gateway
     depends_on:
@@ -22,7 +24,7 @@ services:
         condition: service_healthy
 EOF
 
-cat >> docker-compose.yml <<EOF
+cat >>docker-compose.yml <<EOF
   db:
     image: postgres:16
     environment:
@@ -43,7 +45,7 @@ EOF
 for dir in ./backend/services/*/; do
   name=$(basename "$dir")
 
-  cat >> docker-compose.yml <<EOF
+  cat >>docker-compose.yml <<EOF
 
   ${name}:
     build:
@@ -57,6 +59,8 @@ for dir in ./backend/services/*/; do
     volumes:
       - .:/app
       - /app/bin
+    env_file:
+      - .env
     environment:
       - SERVICE_NAME=${name}
     depends_on:
@@ -67,7 +71,7 @@ EOF
   NEXT_PORT=$((NEXT_PORT + 1))
 done
 
-cat >> docker-compose.yml <<EOF
+cat >>docker-compose.yml <<EOF
 
 volumes:
   db-data:
