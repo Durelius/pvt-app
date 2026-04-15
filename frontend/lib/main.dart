@@ -1,9 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() async{
+
+final FlutterLocalNotificationsPlugin notifications = 
+FlutterLocalNotificationsPlugin();
+
+
+void main() async {
+  const AndroidInitializationSettings androidSettings = 
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+  
+  const InitializationSettings initSettings = 
+  InitializationSettings(android: androidSettings);
+
+  await notifications.initialize(initSettings);
+
+
   await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
