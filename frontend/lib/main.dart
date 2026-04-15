@@ -1,10 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+
+final FlutterLocalNotificationsPlugin notifications = 
+FlutterLocalNotificationsPlugin();
+
+
+void main() async {
+  const AndroidInitializationSettings androidSettings = 
+  AndroidInitializationSettings('@mipmap/ic_launcher');
+  
+  const InitializationSettings initSettings = 
+  InitializationSettings(android: androidSettings);
+
+  await notifications.initialize(initSettings);
+
+
+  await dotenv.load(fileName: ".env");
   runApp(const MyApp());
 }
+
+Future<void> showTestNotification() async {
+  await notifications.show(
+    0,
+    'Testnotis',
+    'Detta är en lokal testnotis',
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'test_channel',
+        'Testkanal', 
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+    ),
+  );
+}
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -55,6 +89,12 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  @override
+  void initState(){
+    super.initState();
+    notifications.resolvePlatformSpecificImplementation<
+    AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+  } 
   int currentPageIndex = 0;
   String heading = "Mitten Prototype Page";
   int savedBadgeCount = 1;
@@ -71,6 +111,13 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: showTestNotification,
+            tooltip: 'Visa testnotis',
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: (int index) {
@@ -115,10 +162,5 @@ class _MyHomePageState extends State<MyHomePage> {
       ][currentPageIndex],
     );
   }
-
-  
-  
-
-    
 }
 
