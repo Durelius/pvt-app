@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:location/location.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:mitten/location_service/location_service.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MyApp());  
 }
 
 class MyApp extends StatelessWidget {
@@ -59,60 +59,17 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  
-  Future<void> getLocation() async{
-    if(kIsWeb){
-     Position position = await _getLocationWeb();
-    }else{
-     LocationData locationData = await _getLocationPhone();
-    }
+  AppLocation? _currentLocation;
+  final LocationService _locationService = LocationService();
+
+  @override
+  void initState() {
+    super.initState();
+
+    _runOnStart();
   }
-
-  Future<Position> _getLocationWeb() async{
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if(!serviceEnabled){
-      return Future.error('Location services are disabled');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if(permission == LocationPermission.denied){
-      permission = await Geolocator.requestPermission();
-      if(permission == LocationPermission.denied){
-        return Future.error('Location permissions are denied');
-      }
-    }
-    if(permission == LocationPermission.deniedForever){
-      return Future.error('Location permissions are permanently denied, we cannot request permissions.');
-    }
-    return await Geolocator.getCurrentPosition();
-  }
-  Future<LocationData> _getLocationPhone() async{
-    Location location = Location();
-    
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-    LocationData locationData;
-
-    serviceEnabled = await location.serviceEnabled();
-    if(!serviceEnabled){
-      serviceEnabled = await location.requestService();
-      if(!serviceEnabled){
-        return Future.error('Location services are disabled');
-      }
-    }
-
-    permissionGranted = await location.hasPermission();
-    if(permissionGranted == PermissionStatus.denied){
-      permissionGranted = await location.requestPermission();
-      if(permissionGranted != PermissionStatus.granted){
-        return Future.error('Location permissions are denied');
-      }
-    }
-    locationData = await location.getLocation();
-    return locationData;
+  Future<void> _runOnStart() async{
+     _currentLocation = await _locationService.getCurrentLocation();
   }
   void _incrementCounter() {
     setState(() {
@@ -167,10 +124,6 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-                  ElevatedButton(
-                  onPressed: getLocation,
-                  child: Text("Hämta plats"),
-            )
           ],
         ),
       ),
