@@ -3,7 +3,7 @@ import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-
+import 'package:mitten/services/location_service.dart';
 
 final FlutterLocalNotificationsPlugin notifications = 
 FlutterLocalNotificationsPlugin();
@@ -92,15 +92,23 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  AppLocation? _currentLocation;
+  final LocationService _locationService = LocationService();
+
   @override
   void initState(){
     super.initState();
     notifications.resolvePlatformSpecificImplementation<
     AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    _locationRequest();
   } 
   int currentPageIndex = 0;
   String heading = "Mitten Prototype Page";
   int savedBadgeCount = 1;
+
+  Future<void> _locationRequest() async{
+     _currentLocation = await _locationService.getCurrentLocation();
+  }
 
   @override
   Widget build(BuildContext context) {
