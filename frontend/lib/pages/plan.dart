@@ -26,22 +26,22 @@ class _PlanPageState extends State<PlanPage> {
   //addresses stored
   final List<String> items = [];
 
-  String _address = "Hämtar adress...";
-  double lat = 59.37593262836998; // Stockholm
-  double lng = 17.93474721023436;
-
+  String _address = "";
+  
   @override
   void initState(){
     super.initState();
+    double lat = widget.currentLocation!.latitude;
+    double lng = widget.currentLocation!.longitude;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
-          _calculatedAddress();
+          _calculatedAddress(lat, lng);
       });
     });
   }
   //Hittar addressen baserat på koordinaterna
-  Future<void> _calculatedAddress() async{
+  Future<void> _calculatedAddress(double lat, double lng) async{
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       
