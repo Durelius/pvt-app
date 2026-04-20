@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:mitten/location_service/location_service.dart';
 
 import '../MapboxGeocodingService.dart';
 
 import 'package:flutter_debouncer/flutter_debouncer.dart';
-
+import 'package:geocoding/geocoding.dart';
 
 class PlanPage extends StatefulWidget{
-  const PlanPage({super.key});
+  final AppLocation? currentLocation;
+  const PlanPage({super.key, this.currentLocation});
 
   @override
   State<PlanPage> createState() => _PlanPageState();
@@ -24,6 +26,38 @@ class _PlanPageState extends State<PlanPage> {
   //addresses stored
   final List<String> items = [];
 
+  String _address = "Hämtar adress...";
+  double lat = 59.37593262836998; // Stockholm
+  double lng = 17.93474721023436;
+
+  @override
+  void initState(){
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+          _calculatedAddress();
+      });
+    });
+  }
+  //Hittar addressen baserat på koordinaterna
+  Future<void> _calculatedAddress() async{
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      
+    if (placemarks.isEmpty) {
+      return;
+    }
+      Placemark place = placemarks.first;
+      setState(() {
+        _address = "${place.street}, ${place.country}";
+        items.add(_address);
+      });
+    } catch (e) {
+      return;
+    }
+  }
+  
   void onTextChanged(String value) {
     debouncer.debounce(
       const Duration(milliseconds: 400),
@@ -98,8 +132,11 @@ class _PlanPageState extends State<PlanPage> {
         Expanded(
           child: ListView.builder(
             itemCount: items.length,
-            itemBuilder: (context, index) => ListTile(
-              title: Text(items[index]),
+            itemBuilder: (context, index) => Container(
+              color: index == 0 ? Colors.lightGreen : Colors.transparent, // <-- grön bakgrund för första item
+              child: ListTile(
+                title: Text(items[index]),
+              ),
             ),
           ),
         ),

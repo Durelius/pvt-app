@@ -3,7 +3,8 @@ import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mitten/services/location_service.dart';
+import 'package:mitten/location_service/location_service.dart';
+import 'package:geocoding/geocoding.dart';
 
 final FlutterLocalNotificationsPlugin notifications = 
 FlutterLocalNotificationsPlugin();
@@ -100,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     notifications.resolvePlatformSpecificImplementation<
     AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    _locationRequest();
   } 
   int currentPageIndex = 0;
   String heading = "Mitten Prototype Page";
@@ -162,7 +164,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // homepage from home.dart
         HomePage(onIncrement: () => setState(() => savedBadgeCount++)),
         // this is the planning page
-        const PlanPage(),
+        PlanPage(currentLocation: _currentLocation),
         // this is the saved page
         Card(
           color: Colors.transparent,
@@ -170,7 +172,7 @@ class _MyHomePageState extends State<MyHomePage> {
           margin: const EdgeInsets.all(8.0),
           child: SizedBox.expand(
             child: Center(
-              child: Text(' $savedBadgeCount new saved locations', style: theme.textTheme.titleLarge),
+              child: Text(' $savedBadgeCount new saved locations',)
             ),
           ),
         ),

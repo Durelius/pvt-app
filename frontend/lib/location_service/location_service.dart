@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:location/location.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart' as geolocator;
+import 'package:geocoding/geocoding.dart' as geocoding;
 
 class LocationService {
-Future<AppLocation> getCurrentLocation() async{
+  Future<AppLocation> getCurrentLocation() async{
     if(kIsWeb){
-     Position position = await _getLocationWeb();
+     geolocator.Position position = await _getLocationWeb();
      return AppLocation(latitude: position.latitude, longitude: position.longitude);
     }else{
      LocationData locationData = await _getLocationPhone();
@@ -13,26 +14,26 @@ Future<AppLocation> getCurrentLocation() async{
     }
   }
 
-  Future<Position> _getLocationWeb() async{
+  Future<geolocator.Position> _getLocationWeb() async{
     bool serviceEnabled;
-    LocationPermission permission;
+    geolocator.LocationPermission permission;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    serviceEnabled = await geolocator.Geolocator.isLocationServiceEnabled();
     if(!serviceEnabled){
       return Future.error('Location services are disabled');
     }
 
-    permission = await Geolocator.checkPermission();
-    if(permission == LocationPermission.denied){
-      permission = await Geolocator.requestPermission();
-      if(permission == LocationPermission.denied){
+    permission = await geolocator.Geolocator.checkPermission();
+    if(permission == geolocator.LocationPermission.denied){
+      permission = await geolocator.Geolocator.requestPermission();
+      if(permission == geolocator.LocationPermission.denied){
         return Future.error('Location permissions are denied');
       }
     }
-    if(permission == LocationPermission.deniedForever){
+    if(permission == geolocator.LocationPermission.deniedForever){
       return Future.error('Location permissions are permanently denied, we cannot request permissions.');
     }
-    return await Geolocator.getCurrentPosition();
+    return await geolocator.Geolocator.getCurrentPosition();
   }
   Future<LocationData> _getLocationPhone() async{
     Location location = Location();
@@ -57,7 +58,19 @@ Future<AppLocation> getCurrentLocation() async{
       }
     }
     locationData = await location.getLocation();
+    debugPrint(locationData.altitude.toString());
     return locationData;
+  }
+  //Hittar addressen baserat på koordinaterna
+  Future<List<geocoding.Placemark>> calculatedAddress(AppLocation appLocation) async{
+    List<geocoding.Placemark> placemarks = await geocoding.placemarkFromCoordinates(appLocation.latitude, appLocation.longitude);
+    if(placemarks.isNotEmpty){
+      geocoding.Placemark place = placemarks.first;
+      debugPrint('Address: ${place.street}, ${place.locality}, ${place.country}');
+    }else{
+      debugPrint('No address found for the given coordinates.');
+    }
+    return placemarks;
   }
 }
 
@@ -67,3 +80,4 @@ class AppLocation{
     
     AppLocation({required this.latitude, required this.longitude});
 }
+

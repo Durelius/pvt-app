@@ -29,6 +29,7 @@ environment:
 # versions available, run `flutter pub outdated`.
 dependencies:
   location: ^5.0.0
+  geocoding: ^4.0.0
   flutter_native_splash: ^2.4.7
   flutter_local_notifications: ^17.0.0
 
