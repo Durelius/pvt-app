@@ -65,7 +65,7 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'Mitten Prototype Page'),
