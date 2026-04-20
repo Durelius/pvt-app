@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	controller "github.com/durelius/pvt-app/backend/services/sl/internal/controller"
 	"github.com/durelius/pvt-app/backend/services/sl/internal/searchaddress"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 	standardrouter "github.com/durelius/pvt-app/backend/shared/router"
@@ -16,6 +17,8 @@ func main() {
 	// add endpoints here
 	router.HandleFunc("/trip", slEndpoint).Methods("GET")
 	standardrouter.Start(router)
+	router.HandleFunc("/trips", controller.TripEndpoint)
+
 }
 
 func slEndpoint(w http.ResponseWriter, r *http.Request) {
