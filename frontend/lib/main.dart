@@ -21,11 +21,12 @@ void main() async {
   const InitializationSettings initSettings = 
   InitializationSettings(android: androidSettings);
 
+  await Hive.initFlutter();
   Hive.registerAdapter(AddressEntryAdapter());
   Hive.registerAdapter(AddressGroupAdapter());
 
-  await Hive.openBox<AddressEntry>('addressEntries'); //tillfälligt entries för demonstration
-  //Ska senare vara AddressGroup
+  await Hive.openBox<AddressEntry>('addressEntries'); //öppnar/skapar lagringsbox
+  // tillfälligt entries för demonstration, ska senare vara AddressGroup
 
   await notifications.initialize(initSettings);
 

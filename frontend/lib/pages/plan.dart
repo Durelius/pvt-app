@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../MapboxGeocodingService.dart';
 
 import 'package:flutter_debouncer/flutter_debouncer.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
+import '../models/address_entry.dart';  
 
 class PlanPage extends StatefulWidget{
   const PlanPage({super.key});
@@ -22,7 +23,13 @@ class _PlanPageState extends State<PlanPage> {
   List<String> suggestions = [];
 
   //addresses stored
-  final List<String> items = [];
+  late Box<AddressEntry> entryBox;
+
+  @override
+  initState() {
+    super.initState();
+    entryBox = Hive.box<AddressEntry>('addressEntries');
+  }
 
   void onTextChanged(String value) {
     debouncer.debounce(
@@ -42,8 +49,14 @@ class _PlanPageState extends State<PlanPage> {
   }
 
   void selectSuggestion(String address){
+    final entry = AddressEntry(
+      address: address,
+      label: 'test',
+    );
+
+    entryBox.add(entry);
+
     setState(() {
-      items.add(address);
       suggestions = [];
       controller.clear();
     });
@@ -51,8 +64,14 @@ class _PlanPageState extends State<PlanPage> {
 
   void addItem(){
     if (controller.text.trim().isEmpty) return;
+    final entry = AddressEntry(
+      address: controller.text.trim(),
+      label: 'test',
+    );
+
+    entryBox.add(entry);
+    
     setState(() {
-      items.add(controller.text.trim());
       controller.clear();
     });
   }
@@ -96,11 +115,20 @@ class _PlanPageState extends State<PlanPage> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) => ListTile(
-              title: Text(items[index]),
-            ),
+          child: ValueListenableBuilder(
+            valueListenable: entryBox.listenable(),
+            builder: (context, Box<AddressEntry> box, _) {
+              return ListView.builder(
+              itemCount: box.length,
+              itemBuilder: (context, index) {
+                final entry = box.getAt(index)!;
+                return ListTile(
+                  leading: const Icon(Icons.location_on),
+                  title: Text(entry.address),
+                );
+              },
+              );
+            },
           ),
         ),
       ],
