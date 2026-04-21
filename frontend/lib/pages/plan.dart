@@ -1,8 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
 import '../MapboxGeocodingService.dart';
-
 import 'package:flutter_debouncer/flutter_debouncer.dart';
+import 'package:http/http.dart' as http;
 
 
 class PlanPage extends StatefulWidget{
@@ -20,9 +20,10 @@ class _PlanPageState extends State<PlanPage> {
   //Mapbox API
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
   List<String> suggestions = [];
+  
 
   //addresses stored
-  final List<String> items = [];
+  final List<String> addresses = [];
 
   void onTextChanged(String value) {
     debouncer.debounce(
@@ -41,9 +42,33 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
+Future<void> findMiddle() async {
+  if (addresses.isEmpty) return;
+
+      final response = await http.post(
+      Uri.parse('http://10.0.2.2:8080/api/middle'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'addresses': addresses}),
+    );
+
+  final result = jsonDecode(response.body);
+  final lat = result['middle']['latitude'];
+  final lng = result['middle']['longitude'];
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Middle: '),
+      content: Text('Lat: $lat\nLng: $lng'),
+    ),
+  );
+}
+
+
+
   void selectSuggestion(String address){
     setState(() {
-      items.add(address);
+      addresses.add(address);
       suggestions = [];
       controller.clear();
     });
@@ -52,10 +77,12 @@ class _PlanPageState extends State<PlanPage> {
   void addItem(){
     if (controller.text.trim().isEmpty) return;
     setState(() {
-      items.add(controller.text.trim());
+      addresses.add(controller.text.trim());
       controller.clear();
     });
   }
+
+
 @override
   Widget build(BuildContext context){
     return Column(
@@ -68,7 +95,7 @@ class _PlanPageState extends State<PlanPage> {
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    decoration: const InputDecoration(hintText: 'Address Please:', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(hintText: 'Address:', border: OutlineInputBorder()),
                     onChanged: onTextChanged,
                     onSubmitted: (_) => addItem(),
                   ),
@@ -91,18 +118,30 @@ class _PlanPageState extends State<PlanPage> {
                       onTap: () => selectSuggestion(suggestions[index]),
                     ),
                   ),
+
+                  
                 ),
-            ],
+                ],
           ),
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: items.length,
+            itemCount: addresses.length,
             itemBuilder: (context, index) => ListTile(
-              title: Text(items[index]),
+              title: Text(addresses[index]),
             ),
           ),
         ),
+
+        if (addresses.length >1)
+                 ElevatedButton(
+                  onPressed: () { //todo: kalla pa find middle
+                },
+                  child: const Text('Find the middle!')
+          ),
+          const SizedBox(width: 8),
+
+          
       ],
     );
   }
