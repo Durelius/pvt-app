@@ -3,6 +3,9 @@ import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'models/address_entry.dart';
+import 'models/address_group.dart';
 
 
 final FlutterLocalNotificationsPlugin notifications = 
@@ -11,12 +14,18 @@ FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  
   const AndroidInitializationSettings androidSettings = 
   AndroidInitializationSettings('@mipmap/ic_launcher');
   
   const InitializationSettings initSettings = 
   InitializationSettings(android: androidSettings);
+
+  Hive.registerAdapter(AddressEntryAdapter());
+  Hive.registerAdapter(AddressGroupAdapter());
+
+  await Hive.openBox<AddressEntry>('addressEntries'); //tillfälligt entries för demonstration
+  //Ska senare vara AddressGroup
 
   await notifications.initialize(initSettings);
 
