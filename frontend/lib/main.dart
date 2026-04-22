@@ -3,9 +3,6 @@ import 'package:mitten/pages/home.dart';
 import 'package:mitten/pages/plan.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'models/address_entry.dart';
-import 'models/address_group.dart';
 
 
 final FlutterLocalNotificationsPlugin notifications = 
@@ -14,19 +11,12 @@ FlutterLocalNotificationsPlugin();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   const AndroidInitializationSettings androidSettings = 
   AndroidInitializationSettings('@mipmap/ic_launcher');
   
   const InitializationSettings initSettings = 
   InitializationSettings(android: androidSettings);
-
-  await Hive.initFlutter();
-  Hive.registerAdapter(AddressEntryAdapter());
-  Hive.registerAdapter(AddressGroupAdapter());
-
-  await Hive.openBox<AddressEntry>('addressEntries'); //öppnar/skapar lagringsbox
-  // tillfälligt entries för demonstration, ska senare vara AddressGroup
 
   await notifications.initialize(initSettings);
 
@@ -75,7 +65,7 @@ class MyApp extends StatelessWidget {
         //
         // This works for code too, not just values: Most code changes can be
         // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
+        colorScheme: .fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'Mitten Prototype Page'),
