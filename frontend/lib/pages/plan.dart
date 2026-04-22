@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+
 import '../MapboxGeocodingService.dart';
+
 import 'package:flutter_debouncer/flutter_debouncer.dart';
-import 'package:http/http.dart' as http;
 
 
 class PlanPage extends StatefulWidget{
@@ -19,11 +19,10 @@ class _PlanPageState extends State<PlanPage> {
 
   //Mapbox API
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
-  List<Address> suggestions = [];
-  
+  List<String> suggestions = [];
 
   //addresses stored
-  final List<Address> addresses = [];
+  final List<String> items = [];
 
   void onTextChanged(String value) {
     debouncer.debounce(
@@ -42,30 +41,9 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
-Future<void> findMiddle() async {
-  if (addresses.isEmpty) return;
-
-      final response = await http.post(
-      Uri.parse('http://localhost:8080/api/mitten/v1/middleplaces'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'addresses': addresses}),
-    );
-
-  final result = jsonDecode(response.body);
-  final lat = result['middle']['latitude'];
-  final lng = result['middle']['longitude'];
-
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('Middle: '),
-      content: Text('Lat: $lat\nLng: $lng'),
-    ),
-  );
-}
-  void selectSuggestion(Address address){
+  void selectSuggestion(String address){
     setState(() {
-      addresses.add(address);
+      items.add(address);
       suggestions = [];
       controller.clear();
     });
@@ -73,15 +51,11 @@ Future<void> findMiddle() async {
 
   void addItem(){
     if (controller.text.trim().isEmpty) return;
-    if (suggestions.isEmpty) return;
     setState(() {
-      addresses.add(suggestions.first);
-      suggestions = [];
+      items.add(controller.text.trim());
       controller.clear();
     });
   }
-
-
 @override
   Widget build(BuildContext context){
     return Column(
@@ -94,7 +68,7 @@ Future<void> findMiddle() async {
                 Expanded(
                   child: TextField(
                     controller: controller,
-                    decoration: const InputDecoration(hintText: 'Address:', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(hintText: 'Address Please:', border: OutlineInputBorder()),
                     onChanged: onTextChanged,
                     onSubmitted: (_) => addItem(),
                   ),
@@ -113,34 +87,22 @@ Future<void> findMiddle() async {
                     itemCount: suggestions.length,
                     itemBuilder: (context, index) => ListTile(
                       leading: const Icon(Icons.location_on),
-                      title: Text(suggestions[index].name.toString()),
+                      title: Text(suggestions[index]),
                       onTap: () => selectSuggestion(suggestions[index]),
                     ),
                   ),
-
-                  
                 ),
-                ],
+            ],
           ),
         ),
         Expanded(
           child: ListView.builder(
-            itemCount: addresses.length,
+            itemCount: items.length,
             itemBuilder: (context, index) => ListTile(
-              title: Text(addresses[index].name.toString()),
+              title: Text(items[index]),
             ),
           ),
         ),
-
-        if (addresses.length >1)
-                 ElevatedButton(
-                  onPressed: findMiddle //todo: kalla pa find middle
-                ,
-                  child: const Text('Find the middle!')
-          ),
-          const SizedBox(width: 8),
-
-          
       ],
     );
   }
