@@ -21,6 +21,7 @@ class _PlanPageState extends State<PlanPage> {
   //Mapbox API
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
   List<String> suggestions = [];
+  String searchTerm = "";
 
   //addresses stored
   final List<String> items = [];
@@ -30,7 +31,7 @@ class _PlanPageState extends State<PlanPage> {
   @override
   void initState() {
     super.initState();
-    double lat = widget.currentLocation?.latitude ?? 0 ;
+    double lat = widget.currentLocation?.latitude ?? 0;
     double lng = widget.currentLocation?.longitude ?? 0;
     if (lat == 0 || lng == 0) {
       return;
@@ -62,6 +63,7 @@ class _PlanPageState extends State<PlanPage> {
 
   void onTextChanged(String value) {
     debouncer.debounce(const Duration(milliseconds: 400), () async {
+      searchTerm = value;
       print('Söker efter: $value'); // skrivs ut när debounce triggar
 
       if (value.trim().length < 4) {
@@ -119,6 +121,19 @@ class _PlanPageState extends State<PlanPage> {
                   IconButton(icon: const Icon(Icons.add), onPressed: addItem),
                 ],
               ),
+
+              if (suggestions.isEmpty && searchTerm.isNotEmpty) // <-- nu utanför Row
+                Card(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: 1,
+                    itemBuilder: (context, index) => ListTile(
+                      title: Text("No suggestions found"),
+                    ),
+                  ),
+                ),
+
               if (suggestions.isNotEmpty) // <-- nu utanför Row
                 Card(
                   child: ListView.builder(
