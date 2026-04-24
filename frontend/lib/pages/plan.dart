@@ -61,16 +61,16 @@ class _PlanPageState extends State<PlanPage> {
     }
   }
 
-  void onTextChanged(String value) {
+  void onTextChanged(String searchParam) {
     debouncer.debounce(const Duration(milliseconds: 400), () async {
-      searchTerm = value;
-      print('Söker efter: $value'); // skrivs ut när debounce triggar
+      searchTerm = searchParam;
+      print('Söker efter: $searchTerm'); // skrivs ut när debounce triggar
 
-      if (value.trim().length < 4) {
+      if (searchTerm.trim().length < 4) {
         setState(() => suggestions = []);
         return;
       }
-      final results = await geocoding.getSuggestions(value);
+      final results = await geocoding.getSuggestions(searchTerm);
       print('Antal förslag: ${results.length}'); // hur många kom tillbaka?
       List<String> names = [];
       for (var i = 0; i < results.length; i++) {
