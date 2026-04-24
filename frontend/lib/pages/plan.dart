@@ -6,7 +6,7 @@ import '../MapboxGeocodingService.dart';
 import 'package:flutter_debouncer/flutter_debouncer.dart';
 import 'package:geocoding/geocoding.dart';
 
-class PlanPage extends StatefulWidget{
+class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
   const PlanPage({super.key, this.currentLocation});
 
@@ -15,7 +15,6 @@ class PlanPage extends StatefulWidget{
 }
 
 class _PlanPageState extends State<PlanPage> {
-
   final Debouncer debouncer = Debouncer();
   final TextEditingController controller = TextEditingController();
 
@@ -27,27 +26,30 @@ class _PlanPageState extends State<PlanPage> {
   final List<String> items = [];
 
   String _address = "";
-  
-  @override
-  void initState(){
-    super.initState();
-    double lat = widget.currentLocation!.latitude;
-    double lng = widget.currentLocation!.longitude;
 
+  @override
+  void initState() {
+    super.initState();
+    double lat = widget.currentLocation?.latitude ?? 0 ;
+    double lng = widget.currentLocation?.longitude ?? 0;
+    if (lat == 0 || lng == 0) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {
-          _calculatedAddress(lat, lng);
+        _calculatedAddress(lat, lng);
       });
     });
   }
+
   //Hittar addressen baserat på koordinaterna
-  Future<void> _calculatedAddress(double lat, double lng) async{
+  Future<void> _calculatedAddress(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-      
-    if (placemarks.isEmpty) {
-      return;
-    }
+
+      if (placemarks.isEmpty) {
+        return;
+      }
       Placemark place = placemarks.first;
       setState(() {
         _address = "${place.street}, ${place.country}";
@@ -57,25 +59,26 @@ class _PlanPageState extends State<PlanPage> {
       return;
     }
   }
-  
-  void onTextChanged(String value) {
-    debouncer.debounce(
-      const Duration(milliseconds: 400),
-      () async {
-        print('Söker efter: $value');  // skrivs ut när debounce triggar
 
-        if (value.trim().length < 4) {
-          setState(() => suggestions = []);
-          return;
-        }
-        final results = await geocoding.getSuggestions(value);
-        print('Antal förslag: ${results.length}');  // hur många kom tillbaka?
-        setState(() => suggestions = results);
-      },
-    );
+  void onTextChanged(String value) {
+    debouncer.debounce(const Duration(milliseconds: 400), () async {
+      print('Söker efter: $value'); // skrivs ut när debounce triggar
+
+      if (value.trim().length < 4) {
+        setState(() => suggestions = []);
+        return;
+      }
+      final results = await geocoding.getSuggestions(value);
+      print('Antal förslag: ${results.length}'); // hur många kom tillbaka?
+      List<String> names = [];
+      for (var i = 0; i < results.length; i++) {
+        names.add(results[i].name);
+      }
+      setState(() => suggestions = names);
+    });
   }
 
-  void selectSuggestion(String address){
+  void selectSuggestion(String address) {
     setState(() {
       items.add(address);
       suggestions = [];
@@ -83,37 +86,40 @@ class _PlanPageState extends State<PlanPage> {
     });
   }
 
-  void addItem(){
+  void addItem() {
     if (controller.text.trim().isEmpty) return;
     setState(() {
       items.add(controller.text.trim());
       controller.clear();
     });
   }
-@override
-  Widget build(BuildContext context){
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(hintText: 'Address Please:', border: OutlineInputBorder()),
-                    onChanged: onTextChanged,
-                    onSubmitted: (_) => addItem(),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      decoration: const InputDecoration(
+                        hintText: 'Address Please:',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: onTextChanged,
+                      onSubmitted: (_) => addItem(),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: addItem,
-                ),
-              ]),
-              if (suggestions.isNotEmpty)       // <-- nu utanför Row
+                  const SizedBox(width: 8),
+                  IconButton(icon: const Icon(Icons.add), onPressed: addItem),
+                ],
+              ),
+              if (suggestions.isNotEmpty) // <-- nu utanför Row
                 Card(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -133,10 +139,10 @@ class _PlanPageState extends State<PlanPage> {
           child: ListView.builder(
             itemCount: items.length,
             itemBuilder: (context, index) => Container(
-              color: index == 0 ? Colors.lightGreen : Colors.transparent, // <-- grön bakgrund för första item
-              child: ListTile(
-                title: Text(items[index]),
-              ),
+              color: index == 0
+                  ? Colors.lightGreen
+                  : Colors.transparent, // <-- grön bakgrund för första item
+              child: ListTile(title: Text(items[index])),
             ),
           ),
         ),
@@ -144,3 +150,4 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 }
+
