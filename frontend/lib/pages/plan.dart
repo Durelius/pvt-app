@@ -1,12 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_debouncer/flutter_debouncer.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
 import 'package:mitten/location_service/location_service.dart';
 
 import '../MapboxGeocodingService.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-import 'package:flutter_debouncer/flutter_debouncer.dart';
-import 'package:geocoding/geocoding.dart';
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
@@ -128,15 +128,15 @@ class _PlanPageState extends State<PlanPage> {
                 ],
               ),
 
-              if (suggestions.isEmpty && searchTerm.isNotEmpty) // <-- nu utanför Row
+              if (suggestions.isEmpty &&
+                  searchTerm.isNotEmpty) // <-- nu utanför Row
                 Card(
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: 1,
-                    itemBuilder: (context, index) => ListTile(
-                      title: Text("No suggestions found"),
-                    ),
+                    itemBuilder: (context, index) =>
+                        ListTile(title: Text("No suggestions found")),
                   ),
                 ),
 
@@ -160,10 +160,18 @@ class _PlanPageState extends State<PlanPage> {
           child: ListView.builder(
             itemCount: items.length,
             itemBuilder: (context, index) => Container(
-              color: index % 2== 0
-                  ? Colors.lightGreen
-                  : Colors.transparent, // <-- grön bakgrund för varannat item
-              child: ListTile(title: Text(items[index])),
+              color: index % 2 == 0 ? Colors.lightGreen : Colors.transparent,
+              child: ListTile(
+                title: Text(items[index]),
+                trailing: IconButton(
+                  icon: const Icon(Icons.remove_circle_outline),
+                  onPressed: () {
+                    setState(() {
+                      items.removeAt(index);
+                    });
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -172,24 +180,26 @@ class _PlanPageState extends State<PlanPage> {
   }
 
   Future<void> findMiddle(List<String> addresses) async {
-    final addressJson = jsonEncode(addresses.map((a) {
-      final parts = a.split(',');
-      final zipAndCity = parts[1].trim().split(' ');          // postnummer och postort hamnar på samma line
-      final zip = "${zipAndCity[0]} ${zipAndCity[1]}".trim(); // "xxx xx" för postnummer
-      final city = zipAndCity.sublist(2).join(' ').trim();    // "postort"
-      return {
-        "street": parts[0].trim(),
-        "zip": zip,
-        "city": city,
-      };
-    }).toList());
-
-    final uri = Uri.parse('http://localhost:8080/api/middle/v1/middleplaces').replace(
-      queryParameters: {
-        'addresses': addressJson,
-        'location_type': 'restaurant',
-      },
+    final addressJson = jsonEncode(
+      addresses.map((a) {
+        final parts = a.split(',');
+        final zipAndCity = parts[1].trim().split(
+          ' ',
+        ); // postnummer och postort hamnar på samma line
+        final zip = "${zipAndCity[0]} ${zipAndCity[1]}"
+            .trim(); // "xxx xx" för postnummer
+        final city = zipAndCity.sublist(2).join(' ').trim(); // "postort"
+        return {"street": parts[0].trim(), "zip": zip, "city": city};
+      }).toList(),
     );
+
+    final uri = Uri.parse('http://localhost:8080/api/middle/v1/middleplaces')
+        .replace(
+          queryParameters: {
+            'addresses': addressJson,
+            'location_type': 'restaurant',
+          },
+        );
 
     final response = await http.get(uri);
 
