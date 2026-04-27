@@ -16,8 +16,8 @@ func main() {
 	router, _ := standardrouter.Init()
 	// add endpoints here
 	router.HandleFunc("/trip", slEndpoint).Methods("GET")
-	standardrouter.Start(router)
 	router.HandleFunc("/trips", controller.TripEndpoint)
+	standardrouter.Start(router)
 
 }
 

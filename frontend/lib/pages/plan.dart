@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mitten/location_service/location_service.dart';
 
 import '../MapboxGeocodingService.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import 'package:flutter_debouncer/flutter_debouncer.dart';
 import 'package:geocoding/geocoding.dart';
@@ -119,6 +121,10 @@ class _PlanPageState extends State<PlanPage> {
                   ),
                   const SizedBox(width: 8),
                   IconButton(icon: const Icon(Icons.add), onPressed: addItem),
+                  ElevatedButton(
+                    onPressed: () => findMiddle(items),
+                    child: const Text('Find the middle'),
+                  ),
                 ],
               ),
 
@@ -134,7 +140,7 @@ class _PlanPageState extends State<PlanPage> {
                   ),
                 ),
 
-              if (suggestions.isNotEmpty) // <-- nu utanför Row
+              if (suggestions.isNotEmpty)
                 Card(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -163,6 +169,36 @@ class _PlanPageState extends State<PlanPage> {
         ),
       ],
     );
+  }
+
+  Future<void> findMiddle(List<String> addresses) async {
+    final addressJson = jsonEncode(addresses.map((a) {
+      final parts = a.split(',');
+      final zipAndCity = parts[1].trim().split(' ');          // postnummer och postort hamnar på samma line
+      final zip = "${zipAndCity[0]} ${zipAndCity[1]}".trim(); // "xxx xx" för postnummer
+      final city = zipAndCity.sublist(2).join(' ').trim();    // "postort"
+      return {
+        "street": parts[0].trim(),
+        "zip": zip,
+        "city": city,
+      };
+    }).toList());
+
+    final uri = Uri.parse('http://localhost:8080/api/middle/v1/middleplaces').replace(
+      queryParameters: {
+        'addresses': addressJson,
+        'location_type': 'restaurant',
+      },
+    );
+
+    final response = await http.get(uri);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print(data);
+    } else {
+      print('Fel: ${response.statusCode}');
+    }
   }
 }
 
