@@ -83,6 +83,7 @@ class _PlanPageState extends State<PlanPage> {
   }
 
   void selectSuggestion(String address) {
+    searchTerm = "";
     setState(() {
       items.add(address);
       suggestions = [];
