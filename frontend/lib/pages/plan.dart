@@ -160,9 +160,9 @@ class _PlanPageState extends State<PlanPage> {
           child: ListView.builder(
             itemCount: items.length,
             itemBuilder: (context, index) => Container(
-              color: index == 0
+              color: index % 2== 0
                   ? Colors.lightGreen
-                  : Colors.transparent, // <-- grön bakgrund för första item
+                  : Colors.transparent, // <-- grön bakgrund för varannat item
               child: ListTile(title: Text(items[index])),
             ),
           ),
