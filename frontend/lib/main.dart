@@ -16,11 +16,25 @@ FlutterLocalNotificationsPlugin();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const AndroidInitializationSettings androidSettings = 
-  AndroidInitializationSettings('@mipmap/ic_launcher');
-  
-  const InitializationSettings initSettings = 
-  InitializationSettings(android: androidSettings);
+  const AndroidInitializationSettings androidSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const DarwinInitializationSettings iosSettings =
+      DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
+
+  const LinuxInitializationSettings linuxSettings =
+      LinuxInitializationSettings(defaultActionName: 'Open notification');
+
+  const InitializationSettings initSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: iosSettings,
+    macOS: iosSettings, // DarwinInitializationSettings works for both
+    linux: linuxSettings,
+  );
 
   await Hive.initFlutter();
   Hive.registerAdapter(AddressEntryAdapter());
