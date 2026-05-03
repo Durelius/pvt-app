@@ -28,6 +28,9 @@ class _PlanPageState extends State<PlanPage> {
   //addresses stored
   final List<String> items = [];
 
+  //list of results when searching for the middle
+  List<dynamic> _results = [];
+
   String _address = "";
 
   @override
@@ -130,7 +133,7 @@ class _PlanPageState extends State<PlanPage> {
               ),
 
               if (suggestions.isEmpty &&
-                  searchTerm.isNotEmpty) // <-- nu utanför Row
+                  searchTerm.isNotEmpty)
                 Card(
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -176,6 +179,21 @@ class _PlanPageState extends State<PlanPage> {
             ),
           ),
         ),
+        if (_results.isNotEmpty)
+          Expanded(
+            child: ListView.builder(
+              itemCount: _results.length,
+              itemBuilder: (context, index) {
+                final place = _results[index];
+                return ListTile(
+                  leading: const Icon(Icons.restaurant),
+                  title: Text(place['displayName']['text']),
+                  subtitle: Text(place['formattedAddress']),
+                  trailing: Text('⭐ ${place['rating']}'),
+                );
+              },
+            ),
+          ),
       ],
     );
   }
@@ -206,7 +224,9 @@ class _PlanPageState extends State<PlanPage> {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      print(data);
+      setState(() {
+        _results = data;
+      });
     } else {
       print('Fel: ${response.statusCode}');
     }
