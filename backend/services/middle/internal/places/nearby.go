@@ -41,6 +41,7 @@ type Place struct {
 	DisplayName      LocalizedText `json:"displayName"`
 	FormattedAddress string        `json:"formattedAddress"`
 	Rating           float64       `json:"rating"`
+	Location         LatLng        `json:"location"` // koordinater
 }
 
 type LocalizedText struct {
@@ -73,7 +74,7 @@ func Nearby(point location.Point, locationType string) ([]Place, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	req.Header.Set("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.rating")
+	req.Header.Set("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.rating,places.location")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
