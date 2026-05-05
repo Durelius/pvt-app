@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/address_entry.dart';
 import 'models/address_group.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 
 
@@ -116,6 +117,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
+  final GoogleAuthService _authService = GoogleAuthService();
+
   @override
   void initState(){
     super.initState();
@@ -144,6 +148,27 @@ class _MyHomePageState extends State<MyHomePage> {
             onPressed: showTestNotification,
             tooltip: 'Visa testnotis',
           ),
+          ElevatedButton(
+            onPressed: () async {
+              // 2. Call the sign-in method
+              final user = await _authService.signInWithGoogle();
+
+              if (user != null) {
+                // 3. Success! Log the info or navigate to the home screen
+                print('Signed in as: ${user.displayName}');
+                print('Email: ${user.email}');
+                
+                // Navigate to your next page
+                // Navigator.pushReplacementNamed(context, '/home');
+              } else {
+                // User cancelled or there was an error
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sign-in failed. Please try again.')),
+                );
+              }
+            },
+            child: const Text('Sign in with Google'),
+          )
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -191,3 +216,21 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+class GoogleAuthService {
+  // Use the standard constructor but with NAMED parameters.
+  // In latest versions, GoogleSignIn() is actually GoogleSignIn({params...})
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
+  );
+
+  Future<GoogleSignInAccount?> signInWithGoogle() async {
+    try {
+      // If this still shows an error, we will use 'dynamic' to force the compiler 
+      // to let us run the code to see if it works at runtime.
+      return await _googleSignIn.signIn();
+    } catch (error) {
+      print("Login failed: $error");
+      return null;
+    }
+  }
+}
