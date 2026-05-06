@@ -54,8 +54,8 @@ class _PlanPageState extends State<PlanPage> {
   //Hittar addressen baserat på koordinaterna
   Future<void> _calculatedAddress(double lat, double lng) async {
     try {
+      debugPrint("Hämtar adress för koordinater: $lat, $lng");
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-
       if (placemarks.isEmpty) {
         return;
       }

@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models/address_entry.dart';
 import 'models/address_group.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:mitten/location_service/location_service.dart';
 
 
 
@@ -117,7 +118,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
+  AppLocation? _currentLocation;
+  final LocationService _locationService = LocationService();
   final GoogleAuthService _authService = GoogleAuthService();
 
   @override
@@ -125,10 +127,19 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     notifications.resolvePlatformSpecificImplementation<
     AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    _locationRequest();
   } 
   int currentPageIndex = 0;
   String heading = "Mitten Prototype Page";
   int savedBadgeCount = 1;
+
+  Future<void> _locationRequest() async{
+     _currentLocation = await _locationService.getCurrentLocation();
+
+      setState(() {});
+
+     debugPrint("address: ${_currentLocation?.latitude}, ${_currentLocation?.longitude}");
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +210,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // homepage from home.dart
         HomePage(onIncrement: () => setState(() => savedBadgeCount++)),
         // this is the planning page
-        const PlanPage(),
+        PlanPage(currentLocation: _currentLocation),
         // this is the saved page
         Card(
           color: Colors.transparent,
