@@ -73,6 +73,8 @@ EOF
 
   cat >> docker-compose.prod.yml << EOF
     container_name: ${name}
+    environment:
+      - SERVICE_NAME=${name}
     env_file:
       - .env
     restart: unless-stopped
