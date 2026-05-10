@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:mitten/location_service/location_service.dart';
 
 import '../MapboxGeocodingService.dart';
+import '../config.dart';
 import 'home.dart';
 
 class PlanPage extends StatefulWidget {
@@ -258,7 +259,7 @@ class _PlanPageState extends State<PlanPage> {
       }).toList(),
     );
 
-    final uri = Uri.parse('http://localhost:8080/api/middle/v1/middleplaces')
+    final uri = Uri.parse('$apiBase/middle/v1/middleplaces')
         .replace(
           queryParameters: {
             'addresses': addressJson,
