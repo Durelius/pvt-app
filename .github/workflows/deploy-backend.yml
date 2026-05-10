@@ -130,11 +130,7 @@ jobs:
         run: |
           service_names=$(echo "$SERVICES" | jq -r '.[].name')
           while IFS= read -r service; do
-            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
-              set -e
-              SERVICE_FILE=/etc/systemd/system/pvt-$service.service
-              if [ ! -f \"\$SERVICE_FILE\" ]; then
-                sudo tee \"\$SERVICE_FILE\" > /dev/null << 'EOF'
+            cat > /tmp/pvt-$service.service << EOF
 [Unit]
 Description=PVT $service
 After=network.target
@@ -149,11 +145,14 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-                sudo systemctl daemon-reload
-                sudo systemctl enable pvt-$service.service
-                sudo systemctl start pvt-$service.service
-              else
-                sudo systemctl restart pvt-$service.service
-              fi
+            rsync -avz \
+              -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no -o StrictHostKeyChecking=no" \
+              /tmp/pvt-$service.service \
+              $DEPLOY_USER@$DEPLOY_IP:/tmp/pvt-$service.service
+            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
+              sudo mv /tmp/pvt-$service.service /etc/systemd/system/pvt-$service.service
+              sudo systemctl daemon-reload
+              sudo systemctl enable pvt-$service.service
+              sudo systemctl restart pvt-$service.service
             "
           done <<< "$service_names"
