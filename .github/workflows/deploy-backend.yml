@@ -130,21 +130,8 @@ jobs:
         run: |
           service_names=$(echo "$SERVICES" | jq -r '.[].name')
           while IFS= read -r service; do
-            cat > /tmp/pvt-$service.service << EOF
-[Unit]
-Description=PVT $service
-After=network.target
-
-[Service]
-Type=simple
-User=$DEPLOY_USER
-ExecStart=/var/www/pvt-backend/$service/$service.bin
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
+            printf '[Unit]\nDescription=PVT %s\nAfter=network.target\n\n[Service]\nType=simple\nUser=%s\nExecStart=/var/www/pvt-backend/%s/%s.bin\nRestart=on-failure\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\n' \
+              "$service" "$DEPLOY_USER" "$service" "$service" > /tmp/pvt-$service.service
             rsync -avz \
               -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no -o StrictHostKeyChecking=no" \
               /tmp/pvt-$service.service \
