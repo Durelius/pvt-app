@@ -138,7 +138,7 @@ jobs:
               $DEPLOY_USER@$DEPLOY_IP:/tmp/pvt-$service.service
             ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
               set -e
-              sudo tee /etc/systemd/system/pvt-$service.service < /tmp/pvt-$service.service > /dev/null
+              sudo cp /tmp/pvt-$service.service /etc/systemd/system/pvt-$service.service
               rm /tmp/pvt-$service.service
               sudo systemctl daemon-reload
               sudo systemctl enable pvt-$service.service
