@@ -63,6 +63,8 @@ PODS:
     - Turf (= 4.0.0)
   - PromisesObjC (2.4.0)
   - Turf (4.0.0)
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
@@ -73,6 +75,7 @@ DEPENDENCIES:
   - google_sign_in_ios (from `.symlinks/plugins/google_sign_in_ios/darwin`)
   - location (from `.symlinks/plugins/location/ios`)
   - mapbox_maps_flutter (from `.symlinks/plugins/mapbox_maps_flutter/ios`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -105,6 +108,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/location/ios"
   mapbox_maps_flutter:
     :path: ".symlinks/plugins/mapbox_maps_flutter/ios"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
@@ -126,6 +131,7 @@ SPEC CHECKSUMS:
   MapboxMaps: 49755f2eef16af8664ed0d4d288c891ed5c001a9
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   Turf: c9eb11a65d96af58cac523460fd40fec5061b081
+  url_launcher_ios: bb13df5870e8c4234ca12609d04010a21be43dfa
 
 PODFILE CHECKSUM: 6c01055ff966e40e8862373e66668a0fbf0b7ba8
 

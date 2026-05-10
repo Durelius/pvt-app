@@ -55,6 +55,7 @@ dependencies:
 
   # For Google Sign-In
   google_sign_in: ^6.2.1 # Use the latest version
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +85,7 @@ flutter:
   uses-material-design: true
   assets:
     - .env
+    - assets/logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -116,12 +118,12 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 flutter_native_splash:
-  color: "#99D98C"
-  image: assets/lightblue.png
+  color: "#FFFFFF"
+  image: assets/logo.png
 
 flutter_icons:
   android: true
   ios: true
-  image_path: assets/mittenicon.png
-  adaptive_icon_background: "#99D98C"
-  adaptive_icon_foreground: assets/mittenicon.png
+  image_path: assets/logo.png
+  adaptive_icon_background: "#63519F"
+  adaptive_icon_foreground: assets/logo.png

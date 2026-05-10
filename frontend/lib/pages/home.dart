@@ -2,110 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.onIncrement});
-  final VoidCallback onIncrement;
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  int _counter = 0;
-  Set<String> _selections = {'Profile'};
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-    widget.onIncrement();
-  }
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Stack( //replaced center with stack to place map as background.
+    return FlutterMap(
+      options: const MapOptions(
+        initialCenter: LatLng(59.33, 18.07),
+        initialZoom: 13,
+      ),
       children: [
-        FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(59.40, 17.94),
-              initialZoom: 12,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
-                userAgentPackageName: 'com.example.app',
-              ),
-              
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution(
-                    '© OpenStreetMap contributors © Mapbox',
-                  ),
-                ],
-              ),
-
-            ],
-          ),
-        
-        //ui on top of the map.
-        Positioned.fill(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              FloatingActionButton(
-                onPressed: _incrementCounter,
-                tooltip: 'Increment',
-                child: const Icon(Icons.add),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'You have pushed the button this many times:',
-                style: TextStyle(color: Colors.white),
-              ),
-              Text(
-                '$_counter',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'Profile',
-                      label: Text('Profile'),
-                      icon: Icon(Icons.person),
-                    ),
-                    ButtonSegment(
-                      value: 'Plan',
-                      icon: Icon(Icons.add),
-                      label: Text('Plan'),
-                    ),
-                    ButtonSegment(
-                      value: 'Saved',
-                      label: Text('Saved'),
-                      icon: Icon(Icons.bookmark),
-                    ),
-                  ],
-                  selected: _selections,
-                  style: SegmentedButton.styleFrom(
-                    overlayColor: const Color(0xFF99D98C),
-                    shadowColor: const Color(0xFF99D98C),
-                    backgroundColor: Colors.white,
-                  ),
-                  onSelectionChanged: (Set<String> newSelection) {
-                    if (newSelection.isNotEmpty) {
-                      setState(() => _selections = newSelection);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 40),
-            ],
-          ),
+        TileLayer(
+          urlTemplate:
+              'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
+          userAgentPackageName: 'com.example.app',
+        ),
+        RichAttributionWidget(
+          attributions: [
+            TextSourceAttribution('© OpenStreetMap contributors © Mapbox'),
+          ],
         ),
       ],
     );
