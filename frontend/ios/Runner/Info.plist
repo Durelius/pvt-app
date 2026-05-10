@@ -67,8 +67,10 @@
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 		<key>UIStatusBarHidden</key>
-		<key>NSLocationWhenInUseUsageDescription<key>
-		<key>NSLocationAlwaysUsageDescription<key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>This app uses your location to find the midpoint between you and others.</string>
+		<key>NSLocationAlwaysUsageDescription</key>
+		<string>This app uses your location to find the midpoint between you and others.</string>
 	</dict>
 </plist>
