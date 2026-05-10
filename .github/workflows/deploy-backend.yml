@@ -87,6 +87,14 @@ jobs:
             docker-compose.prod.yml \
             $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/docker-compose.prod.yml
 
+      - name: Write .env to server
+        env:
+          PLACES_KEY: ${{ secrets.PLACES_KEY }}
+        run: |
+          printf "PLACES_KEY=%s\n" "$PLACES_KEY" | \
+            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP \
+            "cat > /var/www/pvt-backend/.env"
+
       - name: Pull and restart
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

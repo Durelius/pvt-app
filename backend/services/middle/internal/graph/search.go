@@ -96,7 +96,8 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 
 // TravelMinutes returns the total travel time in minutes from start to destination,
 // or -1 if no route is found. Results are cached. Suspicious results (< 5 or > 120 min)
-// are cross-checked against the SL Journey Planner API.
+// are cross-checked against the SL Journey Planner API. If no local path exists at all,
+// the SL API is used as a fallback.
 func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTime int) int {
 	if start.label == destination.label {
 		return 0
@@ -108,47 +109,61 @@ func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTim
 	}
 
 	path := graph.FindRoute(start, destination, startTime)
-	if len(path) == 0 {
-		return -1
-	}
-	last := path[len(path)-1]
-	localMinutes := last.Metadata.Arrival - startTime
 
-	result := localMinutes
-	if !graph.skipAPIValidation && (localMinutes < 5 || localMinutes > 120) {
-		result = graph.validateWithSLAPI(start, destination, localMinutes)
+	var result int
+	if len(path) == 0 {
+		if graph.skipAPIValidation {
+			return -1
+		}
+		result = graph.fetchSLAPIMinutes(start, destination)
+		if result < 0 {
+			return -1
+		}
+		log.Printf("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
+	} else {
+		last := path[len(path)-1]
+		localMinutes := last.Metadata.Arrival - startTime
+		result = localMinutes
+		if !graph.skipAPIValidation && (localMinutes < 5 || localMinutes > 120) {
+			result = graph.validateWithSLAPI(start, destination, localMinutes)
+		}
 	}
 
 	graph.travelCache.Store(cacheKey, result)
 	return result
 }
 
-func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes int) int {
+func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 	sm := start.Metadata()
 	dm := destination.Metadata()
-
 	fromLat, err1 := strconv.ParseFloat(sm.StopLatitude, 64)
 	fromLon, err2 := strconv.ParseFloat(sm.StopLongitude, 64)
 	toLat, err3 := strconv.ParseFloat(dm.StopLatitude, 64)
 	toLon, err4 := strconv.ParseFloat(dm.StopLongitude, 64)
 	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-		return localMinutes
+		return -1
 	}
-
-	apiMinutes, err := slPointSearch(fromLat, fromLon, toLat, toLon)
+	minutes, err := slPointSearch(fromLat, fromLon, toLat, toLon)
 	if err != nil {
-		log.Printf("SL API validation failed (%s→%s): %v, keeping local result %d min", sm.StopName, dm.StopName, err, localMinutes)
+		log.Printf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
+		return -1
+	}
+	return minutes
+}
+
+func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes int) int {
+	apiMinutes := graph.fetchSLAPIMinutes(start, destination)
+	if apiMinutes < 0 {
+		log.Printf("SL API validation failed (%s→%s), keeping local result %d min", start.Metadata().StopName, destination.Metadata().StopName, localMinutes)
 		return localMinutes
 	}
 
-	if localMinutes > 0 {
-		diff := math.Abs(float64(apiMinutes-localMinutes)) / float64(localMinutes)
-		if diff > 0.2 {
-			log.Printf("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result", apiMinutes, localMinutes, diff*100, sm.StopName, dm.StopName)
-			return apiMinutes
-		}
+	diff := math.Abs(float64(apiMinutes-localMinutes)) / float64(localMinutes)
+	if diff > 0.2 {
+		log.Printf("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result",
+			apiMinutes, localMinutes, diff*100, start.Metadata().StopName, destination.Metadata().StopName)
+		return apiMinutes
 	}
-
 	return localMinutes
 }
 
