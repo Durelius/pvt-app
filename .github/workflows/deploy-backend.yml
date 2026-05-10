@@ -55,8 +55,8 @@ jobs:
           rsync -avz \
             -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no" \
             temp.txt \
-            $DEPLOY_USER@$DEPLOY_IP:/srv/www/pvt-production/
-          ssh $DEPLOY_USER@$DEPLOY_IP "rm /srv/www/pvt-production/temp.txt"
+            $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/
+          ssh $DEPLOY_USER@$DEPLOY_IP "rm /var/www/pvt-backend/temp.txt"
 
   build:
     name: Build ${{ matrix.service.name }}
@@ -120,7 +120,7 @@ jobs:
             rsync -avz --chmod=+x \
               -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no" \
               "$dir" \
-              $DEPLOY_USER@$DEPLOY_IP:/srv/www/pvt-production/backend/$service/
+              $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/$service/
           done
 
       - name: Restart services
