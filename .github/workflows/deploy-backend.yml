@@ -5,20 +5,61 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-      - 'docker-compose.prod.yml'
       - 'DockerGateway.prod'
       - 'DockerService.prod'
+      - 'scripts/generate-compose.prod.sh'
   workflow_dispatch:
 
 jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push all images
+        run: |
+          docker build -f DockerGateway.prod \
+            -t ghcr.io/${{ github.repository_owner }}/pvt-api-gateway:latest \
+            .
+          docker push ghcr.io/${{ github.repository_owner }}/pvt-api-gateway:latest
+
+          for dir in backend/services/*/; do
+            [ -f "$dir/app/main.go" ] || continue
+            name=$(basename "$dir")
+            docker build \
+              --build-arg SERVICE_NAME=$name \
+              -f DockerService.prod \
+              -t ghcr.io/${{ github.repository_owner }}/pvt-$name:latest \
+              .
+            docker push ghcr.io/${{ github.repository_owner }}/pvt-$name:latest
+          done
+
   deploy:
     name: Deploy
     environment: production
     runs-on: ubuntu-latest
+    needs: build-and-push
     env:
       DEPLOY_IP: ${{ vars.LINODE_IP }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
     steps:
+      - uses: actions/checkout@v3
+
+      - name: Generate prod compose file
+        run: IMAGE_PREFIX=$IMAGE_PREFIX bash scripts/generate-compose.prod.sh
+
       - name: Add SSH Server to Known Hosts
         run: |
           mkdir -p ~/.ssh
@@ -29,11 +70,22 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY }}
 
-      - name: Deploy
+      - name: Copy compose file to server
         run: |
+          rsync -avz \
+            -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no -o StrictHostKeyChecking=no" \
+            docker-compose.prod.yml \
+            $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/docker-compose.prod.yml
+
+      - name: Pull and restart
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP \
+            "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
+
           ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
             cd /var/www/pvt-backend &&
-            git pull &&
-            bash scripts/generate-compose.prod.sh &&
-            docker compose -f docker-compose.prod.yml up --build -d
+            docker compose -f docker-compose.prod.yml pull &&
+            docker compose -f docker-compose.prod.yml up -d
           "

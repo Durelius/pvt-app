@@ -1,11 +1,27 @@
 #!/bin/bash
 
-cat >docker-compose.prod.yml <<EOF
+# When IMAGE_PREFIX is set, uses pre-built images from the registry.
+# When not set, falls back to building locally from prod Dockerfiles.
+IMAGE_PREFIX="${IMAGE_PREFIX:-}"
+
+cat > docker-compose.prod.yml << EOF
 services:
   api-gateway:
+EOF
+
+if [ -n "$IMAGE_PREFIX" ]; then
+  cat >> docker-compose.prod.yml << EOF
+    image: ${IMAGE_PREFIX}/pvt-api-gateway:latest
+EOF
+else
+  cat >> docker-compose.prod.yml << EOF
     build:
       context: .
       dockerfile: DockerGateway.prod
+EOF
+fi
+
+cat >> docker-compose.prod.yml << EOF
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -36,14 +52,26 @@ for dir in ./backend/services/*/; do
   [ -f "$dir/app/main.go" ] || continue
   name=$(basename "$dir")
 
-  cat >>docker-compose.prod.yml <<EOF
+  cat >> docker-compose.prod.yml << EOF
 
   ${name}:
+EOF
+
+  if [ -n "$IMAGE_PREFIX" ]; then
+    cat >> docker-compose.prod.yml << EOF
+    image: ${IMAGE_PREFIX}/pvt-${name}:latest
+EOF
+  else
+    cat >> docker-compose.prod.yml << EOF
     build:
       context: .
       dockerfile: DockerService.prod
       args:
         SERVICE_NAME: ${name}
+EOF
+  fi
+
+  cat >> docker-compose.prod.yml << EOF
     container_name: ${name}
     env_file:
       - .env
@@ -54,7 +82,7 @@ for dir in ./backend/services/*/; do
 EOF
 done
 
-cat >>docker-compose.prod.yml <<EOF
+cat >> docker-compose.prod.yml << EOF
 
 volumes:
   db-data:
