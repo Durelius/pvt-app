@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
         with:
@@ -30,9 +33,9 @@ jobs:
       - name: Build and push all images
         run: |
           docker build -f DockerGateway.prod \
-            -t ghcr.io/${{ github.repository_owner }}/pvt-api-gateway:latest \
+            -t $IMAGE_PREFIX/pvt-api-gateway:latest \
             .
-          docker push ghcr.io/${{ github.repository_owner }}/pvt-api-gateway:latest
+          docker push $IMAGE_PREFIX/pvt-api-gateway:latest
 
           for dir in backend/services/*/; do
             [ -f "$dir/app/main.go" ] || continue
@@ -40,9 +43,9 @@ jobs:
             docker build \
               --build-arg SERVICE_NAME=$name \
               -f DockerService.prod \
-              -t ghcr.io/${{ github.repository_owner }}/pvt-$name:latest \
+              -t $IMAGE_PREFIX/pvt-$name:latest \
               .
-            docker push ghcr.io/${{ github.repository_owner }}/pvt-$name:latest
+            docker push $IMAGE_PREFIX/pvt-$name:latest
           done
 
   deploy:
@@ -53,9 +56,11 @@ jobs:
     env:
       DEPLOY_IP: ${{ vars.LINODE_IP }}
       DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-      IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Generate prod compose file
         run: IMAGE_PREFIX=$IMAGE_PREFIX bash scripts/generate-compose.prod.sh
