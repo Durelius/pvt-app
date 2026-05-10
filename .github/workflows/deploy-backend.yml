@@ -116,16 +116,44 @@ jobs:
       - name: Deploy binaries
         run: |
           for dir in bins/*/; do
-            service="${$(basename "$dir")%-bin}"
+            name=$(basename "$dir")
+            service="${name%-bin}"
             rsync -avz --chmod=+x \
               -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no" \
               "$dir" \
               $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/$service/
           done
 
-      - name: Restart services
+      - name: Sync systemd services
         env:
           SERVICES: ${{ needs.discover.outputs.services }}
         run: |
-          cmds=$(echo "$SERVICES" | jq -r '.[].name | "sudo systemctl restart pvt-\(.)-production.service"' | tr '\n' ';')
-          ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "$cmds"
+          service_names=$(echo "$SERVICES" | jq -r '.[].name')
+          while IFS= read -r service; do
+            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
+              set -e
+              SERVICE_FILE=/etc/systemd/system/pvt-$service.service
+              if [ ! -f \"\$SERVICE_FILE\" ]; then
+                sudo tee \"\$SERVICE_FILE\" > /dev/null << 'EOF'
+[Unit]
+Description=PVT $service
+After=network.target
+
+[Service]
+Type=simple
+User=$DEPLOY_USER
+ExecStart=/var/www/pvt-backend/$service/$service.bin
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+                sudo systemctl daemon-reload
+                sudo systemctl enable pvt-$service.service
+                sudo systemctl start pvt-$service.service
+              else
+                sudo systemctl restart pvt-$service.service
+              fi
+            "
+          done <<< "$service_names"
