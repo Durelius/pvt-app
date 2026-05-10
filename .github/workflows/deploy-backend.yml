@@ -40,9 +40,14 @@ jobs:
           for dir in backend/services/*/; do
             [ -f "$dir/app/main.go" ] || continue
             name=$(basename "$dir")
+            if [ "$name" = "middle" ]; then
+              dockerfile="DockerMiddle.prod"
+            else
+              dockerfile="DockerService.prod"
+            fi
             docker build \
               --build-arg SERVICE_NAME=$name \
-              -f DockerService.prod \
+              -f $dockerfile \
               -t $IMAGE_PREFIX/pvt-$name:latest \
               .
             docker push $IMAGE_PREFIX/pvt-$name:latest

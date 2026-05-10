@@ -1,0 +1,39 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_url
+1275000100001,275,1,,700,http://www.resrobot.se/
+1275000200001,275,2,,700,http://www.resrobot.se/
+1275000300001,275,3,,700,http://www.resrobot.se/
+1275000400001,275,4,,700,http://www.resrobot.se/
+1275000600001,275,6,,700,http://www.resrobot.se/
+1275000700001,275,7,,900,http://www.resrobot.se/
+1275001000001,275,10,,401,http://www.resrobot.se/
+1275001100001,275,11,,401,http://www.resrobot.se/
+1275001200001,275,,Nockebybanan 12,900,http://www.resrobot.se/
+1275001300001,275,13,,401,http://www.resrobot.se/
+1275001400001,275,14,,401,http://www.resrobot.se/
+1275001700001,275,17,,401,http://www.resrobot.se/
+1275001800001,275,18,,401,http://www.resrobot.se/
+1275001900001,275,19,,401,http://www.resrobot.se/
+1275002100001,275,,Lidingöbanan 21,900,http://www.resrobot.se/
+1275002200001,275,,Tvärbanan 22,900,http://www.resrobot.se/
+1275005000001,275,50,,700,http://www.resrobot.se/
+1275005300001,275,53,,700,http://www.resrobot.se/
+1275005400001,275,54,,700,http://www.resrobot.se/
+1275005500001,275,55,,700,http://www.resrobot.se/
+1275005600001,275,56,,700,http://www.resrobot.se/
+1275005700001,275,57,,700,http://www.resrobot.se/
+1275005800001,275,58,,700,http://www.resrobot.se/
+1275006100001,275,61,,700,http://www.resrobot.se/
+1275006500001,275,65,,700,http://www.resrobot.se/
+1275006600001,275,66,,700,http://www.resrobot.se/
+1275006700001,275,67,,700,http://www.resrobot.se/
+1275006900001,275,69,,700,http://www.resrobot.se/
+1275007100001,275,71,,700,http://www.resrobot.se/
+1275007200001,275,72,,700,http://www.resrobot.se/
+1275007400001,275,74,,700,http://www.resrobot.se/
+1275007500001,275,75,,700,http://www.resrobot.se/
+1275007600001,275,76,,700,http://www.resrobot.se/
+1275007700001,275,77,,700,http://www.resrobot.se/
+1275009100001,275,91,,700,http://www.resrobot.se/
+1275009300001,275,93,,700,http://www.resrobot.se/
+1275009400001,275,94,,700,http://www.resrobot.se/
+1275009600001,275,96,,700,http://www.resrobot.se/

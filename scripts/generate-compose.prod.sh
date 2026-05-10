@@ -57,6 +57,13 @@ for dir in ./backend/services/*/; do
   ${name}:
 EOF
 
+  # Services with their own assets get a dedicated Dockerfile
+  if [ "$name" = "middle" ]; then
+    dockerfile="DockerMiddle.prod"
+  else
+    dockerfile="DockerService.prod"
+  fi
+
   if [ -n "$IMAGE_PREFIX" ]; then
     cat >> docker-compose.prod.yml << EOF
     image: ${IMAGE_PREFIX}/pvt-${name}:latest
@@ -65,7 +72,7 @@ EOF
     cat >> docker-compose.prod.yml << EOF
     build:
       context: .
-      dockerfile: DockerService.prod
+      dockerfile: ${dockerfile}
       args:
         SERVICE_NAME: ${name}
 EOF
