@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+	"os"
 
+	plog "github.com/durelius/go-prodlog"
 	controller "github.com/durelius/pvt-app/backend/services/sl/internal/controller"
 	"github.com/durelius/pvt-app/backend/services/sl/internal/searchaddress"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
@@ -12,6 +13,11 @@ import (
 )
 
 func main() {
+	logDir := "/app/logs"
+	if err := os.MkdirAll(logDir, 0755); err == nil {
+		plog.SetLogFilePrefix("sl")
+		plog.EnableLogFile(logDir)
+	}
 
 	router, _ := standardrouter.Init()
 	// add endpoints here
@@ -39,7 +45,7 @@ func slEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	res, err := searchaddress.AddressSearch(from, to)
 	if err != nil {
-		log.Println(err)
+		plog.Error(err)
 		http.Error(w, "failed to search address at SL", http.StatusBadRequest)
 		return
 	}

@@ -2,13 +2,13 @@ package graph
 
 import (
 	"container/heap"
-	"log"
 	"math"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	plog "github.com/durelius/go-prodlog"
 	pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
 )
 
@@ -56,7 +56,7 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 			for key != startKey {
 				info, ok := cameFrom[key]
 				if !ok {
-					log.Println("route reconstruction error")
+					plog.Warning("route reconstruction error")
 					return nil
 				}
 				path = append(path, info.edge)
@@ -160,7 +160,7 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 		if result < 0 {
 			return -1
 		}
-		log.Printf("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
+		plog.Infof("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
 	} else {
 		result = graph.validateWithSLAPI(start, destination, localMinutes)
 	}
@@ -181,7 +181,7 @@ func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 	}
 	minutes, err := slPointSearch(fromLat, fromLon, toLat, toLon)
 	if err != nil {
-		log.Printf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
+		plog.Warningf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
 		return -1
 	}
 	return minutes
@@ -190,13 +190,13 @@ func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes int) int {
 	apiMinutes := graph.fetchSLAPIMinutes(start, destination)
 	if apiMinutes < 0 {
-		log.Printf("SL API validation failed (%s→%s), keeping local result %d min", start.Metadata().StopName, destination.Metadata().StopName, localMinutes)
+		plog.Warningf("SL API validation failed (%s→%s), keeping local result %d min", start.Metadata().StopName, destination.Metadata().StopName, localMinutes)
 		return localMinutes
 	}
 
 	diff := math.Abs(float64(apiMinutes-localMinutes)) / float64(localMinutes)
 	if diff > 0.2 {
-		log.Printf("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result",
+		plog.Infof("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result",
 			apiMinutes, localMinutes, diff*100, start.Metadata().StopName, destination.Metadata().StopName)
 		return apiMinutes
 	}

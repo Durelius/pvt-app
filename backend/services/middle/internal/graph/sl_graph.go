@@ -1,9 +1,10 @@
 package graph
 
 import (
-	"log"
 	"sync"
 	"sync/atomic"
+
+	plog "github.com/durelius/go-prodlog"
 )
 
 type SLGraph struct {
@@ -31,13 +32,13 @@ func NewWithData() (*SLGraph, error) {
 	var initErr error
 	once.Do(func() {
 		graph := New()
-		log.Println("loading SL graph data...")
+		plog.Info("loading SL graph data...")
 		if err := graph.init(); err != nil {
 			initErr = err
 			return
 		}
 		instance = graph
-		log.Printf("SL graph loaded: %d stops, %d edges", graph.Order(), graph.Size())
+		plog.Infof("SL graph loaded: %d stops, %d edges", graph.Order(), graph.Size())
 	})
 	if initErr != nil {
 		return nil, initErr
@@ -47,7 +48,7 @@ func NewWithData() (*SLGraph, error) {
 
 func Instance() *SLGraph {
 	if instance == nil {
-		log.Fatal("graph is nil, call NewWithData first")
+		plog.Fatal("graph is nil, call NewWithData first")
 	}
 	return instance
 }

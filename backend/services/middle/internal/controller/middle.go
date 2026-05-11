@@ -2,11 +2,11 @@ package controller
 
 import (
 	"encoding/json"
-	"log"
 	"math"
 	"net/http"
 	"sort"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/graph"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/middle"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/places"
@@ -14,8 +14,12 @@ import (
 )
 
 const (
-	startTime  = 9 * 60 // 09:00
-	maxResults = 5
+	startTime             = 9 * 60
+	maxResults            = 5
+	nearestStopCandidates = 3
+	spreadThreshold       = 10   // target max transit time spread in minutes
+	baseSearchRadius      = 500.0
+	maxSearchRadius       = 4000.0
 )
 
 func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -60,77 +64,82 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	candidates, err := places.Nearby(*centroid, locationType)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "couldn't find nearby places", http.StatusInternalServerError)
-		return
+	g := graph.Instance()
+	inputStopSets := make([][]*graph.Vertex, len(points))
+	for i, p := range points {
+		inputStopSets[i] = g.FindNClosestStops(p.Latitude, p.Longitude, nearestStopCandidates)
+		if len(inputStopSets[i]) == 0 {
+			plog.Warning("no stop found for input, falling back to centroid order")
+			candidates, err := places.Nearby(*centroid, locationType, baseSearchRadius)
+			if err != nil {
+				plog.Error(err)
+				http.Error(w, "couldn't find nearby places", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(cap5(candidates))
+			return
+		}
 	}
 
-	ranked := rankByTransitFairness(candidates, points)
+	var candidates []places.Place
+	var ranked []scoredPlace
+	radius := baseSearchRadius
+
+	for {
+		candidates, err = searchGrid(*centroid, locationType, radius)
+		if err != nil {
+			plog.Error(err)
+			http.Error(w, "couldn't find nearby places", http.StatusInternalServerError)
+			return
+		}
+
+		ranked = scoreAndRank(candidates, inputStopSets, g, false)
+
+		bestSpread := math.MaxInt
+		if len(ranked) > 0 {
+			bestSpread = ranked[0].spread
+		}
+
+		if bestSpread <= spreadThreshold || radius >= maxSearchRadius {
+			break
+		}
+
+		radius = math.Min(radius*2, maxSearchRadius)
+		plog.Infof("spread %d min exceeds threshold, expanding grid radius to %.0f m", bestSpread, radius)
+	}
+
+	// Final SL API validation pass if spread is still above threshold
+	if len(ranked) > 0 && ranked[0].spread > spreadThreshold && ranked[0].spread < math.MaxInt {
+		plog.Infof("spread %d min after radius expansion, retrying with SL API validation", ranked[0].spread)
+		validated := scoreAndRank(candidates, inputStopSets, g, true)
+		if len(validated) > 0 && validated[0].spread < ranked[0].spread {
+			ranked = validated
+		}
+	}
+
+	result := make([]places.Place, 0, maxResults)
+	for i, s := range ranked {
+		if i >= maxResults || s.spread == math.MaxInt {
+			break
+		}
+		plog.Infof("ranked #%d: %s (score %d, avg %d min, spread %d min)", i+1, s.place.DisplayName.Text, s.avg+s.spread, s.avg, s.spread)
+		result = append(result, s.place)
+	}
+
+	if len(result) == 0 {
+		plog.Warning("no routable places found, falling back to centroid order")
+		result = cap5(candidates)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ranked)
+	json.NewEncoder(w).Encode(result)
 }
-
-const (
-	nearestStopCandidates = 3
-	spreadFallbackMin     = 15 // trigger SL API validation pass when best spread exceeds this
-)
 
 type scoredPlace struct {
 	place  places.Place
 	spread int
 	avg    int
-}
-
-// rankByTransitFairness scores each place by spread (max−min travel time across
-// inputs), with average as tiebreaker. If the best spread exceeds spreadFallbackMin,
-// a second pass using SL API validation is attempted. Falls back to centroid order
-// if neither pass produces a spread within the threshold.
-func rankByTransitFairness(candidates []places.Place, inputs []location.Point) []places.Place {
-	g := graph.Instance()
-
-	inputStopSets := make([][]*graph.Vertex, len(inputs))
-	for i, p := range inputs {
-		inputStopSets[i] = g.FindNClosestStops(p.Latitude, p.Longitude, nearestStopCandidates)
-		if len(inputStopSets[i]) == 0 {
-			log.Println("no stop found for input, falling back to centroid order")
-			return cap5(candidates)
-		}
-	}
-
-	ranked := scoreAndRank(candidates, inputStopSets, g, false)
-
-	bestSpread := math.MaxInt
-	if len(ranked) > 0 {
-		bestSpread = ranked[0].spread
-	}
-
-	if bestSpread > spreadFallbackMin && bestSpread < math.MaxInt {
-		// Some routes scored but spread is high — try SL API validation.
-		log.Printf("local spread %d min exceeds threshold, retrying with SL API validation", bestSpread)
-		ranked = scoreAndRank(candidates, inputStopSets, g, true)
-		bestSpread = math.MaxInt
-		if len(ranked) > 0 {
-			bestSpread = ranked[0].spread
-		}
-	}
-
-	if bestSpread > spreadFallbackMin {
-		log.Printf("spread %d min, falling back to centroid order", bestSpread)
-		return cap5(candidates)
-	}
-
-	result := make([]places.Place, 0, maxResults)
-	for i, s := range ranked {
-		if i >= maxResults {
-			break
-		}
-		log.Printf("ranked #%d: %s (spread %d min, avg %d min)", i+1, s.place.DisplayName.Text, s.spread, s.avg)
-		result = append(result, s.place)
-	}
-	return result
 }
 
 func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, validate bool) []scoredPlace {
@@ -184,12 +193,49 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 	}
 
 	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].spread != scored[j].spread {
-			return scored[i].spread < scored[j].spread
+		si, sj := scored[i], scored[j]
+		if si.spread == math.MaxInt {
+			return false
 		}
-		return scored[i].avg < scored[j].avg
+		if sj.spread == math.MaxInt {
+			return true
+		}
+		return si.avg+si.spread < sj.avg+sj.spread
 	})
 	return scored
+}
+
+// searchGrid queries Places API from 5 points (centroid + N/S/E/W offset by
+// radius) and returns a deduplicated union of all results. This surfaces
+// candidates that are off-center but genuinely better transit-wise.
+func searchGrid(center location.Point, locationType string, radius float64) ([]places.Place, error) {
+	dLat := radius / 111320.0
+	dLon := radius / (111320.0 * math.Cos(center.Latitude*math.Pi/180))
+
+	searchPoints := []location.Point{
+		center,
+		{Latitude: center.Latitude + dLat, Longitude: center.Longitude},
+		{Latitude: center.Latitude - dLat, Longitude: center.Longitude},
+		{Latitude: center.Latitude, Longitude: center.Longitude + dLon},
+		{Latitude: center.Latitude, Longitude: center.Longitude - dLon},
+	}
+
+	seen := make(map[string]bool)
+	var merged []places.Place
+	for _, p := range searchPoints {
+		results, err := places.Nearby(p, locationType, radius)
+		if err != nil {
+			return nil, err
+		}
+		for _, place := range results {
+			if !seen[place.ID] {
+				seen[place.ID] = true
+				merged = append(merged, place)
+			}
+		}
+	}
+	plog.Infof("grid search: %d unique candidates from 5 points at radius %.0f m", len(merged), radius)
+	return merged, nil
 }
 
 func cap5(ps []places.Place) []places.Place {

@@ -2,9 +2,9 @@ package controller
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/services/sl/internal/searchaddress"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
@@ -42,7 +42,7 @@ func TripEndpoint(w http.ResponseWriter, r *http.Request) {
 	//anropa addressSearch för att få resedata i trips
 	trips, err := searchaddress.AddressSearch(from, to)
 	if err != nil {
-		log.Println(err)
+		plog.Error(err)
 		http.Error(w, "Couldn't fetch trips from SL", http.StatusInternalServerError)
 		return
 	}

@@ -2,11 +2,11 @@ package graph
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strings"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/gocarina/gocsv"
 )
 
@@ -86,7 +86,7 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 			}
 			dist, err := ApproxDistanceMeters(a, b)
 			if err != nil {
-				log.Printf("distance error: %v", err)
+				plog.Warningf("distance error: %v", err)
 				continue
 			}
 			if dist < 400 {
