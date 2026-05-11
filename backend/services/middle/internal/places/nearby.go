@@ -53,11 +53,11 @@ func Nearby(point location.Point, locationType string) ([]Place, error) {
 	apiKey := os.Getenv("PLACES_KEY")
 	reqBody := NearbySearchRequest{
 		IncludedTypes:  []string{locationType},
-		MaxResultCount: 5,
+		MaxResultCount: 20,
 		LocationRestriction: LocationRestriction{
 			Circle: Circle{
 				Center: LatLng{Latitude: point.Latitude, Longitude: point.Longitude},
-				Radius: 1000,
+				Radius: 2000,
 			},
 		},
 	}

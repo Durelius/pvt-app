@@ -94,24 +94,65 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	return nil
 }
 
-// TravelMinutes returns the total travel time in minutes from start to destination,
-// or -1 if no route is found. Results are cached. Suspicious results (< 5 or > 120 min)
-// are cross-checked against the SL Journey Planner API. If no local path exists at all,
-// the SL API is used as a fallback.
+// TravelMinutes returns the local-graph travel time in minutes (A* only, no SL API).
+// Returns -1 if no route found. Results are cached.
 func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTime int) int {
+	return graph.travelMinutes(start, destination, startTime, false)
+}
+
+// TravelMinutesValidated is like TravelMinutes but cross-checks suspicious results
+// against the SL Journey Planner API. Use this when the local spread is high and
+// you want a more accurate second-pass estimate. Bypasses the cache so results
+// are always fresh; writes the validated result back to cache.
+func (graph *SLGraph) TravelMinutesValidated(start *Vertex, destination *Vertex, startTime int) int {
+	if graph.skipAPIValidation {
+		return graph.TravelMinutes(start, destination, startTime)
+	}
+	return graph.travelMinutes(start, destination, startTime, true)
+}
+
+func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTime int, validate bool) int {
 	if start.label == destination.label {
 		return 0
 	}
 
 	cacheKey := start.label + ":" + destination.label
-	if cached, ok := graph.travelCache.Load(cacheKey); ok {
-		return cached.(int)
+	if !validate {
+		if cached, ok := graph.travelCache.Load(cacheKey); ok {
+			return cached.(int)
+		}
 	}
 
-	path := graph.FindRoute(start, destination, startTime)
+	const noPath = -2 // sentinel cached when A* finds no route
 
+	// On validate pass, if we already know there's no local path, skip A* and go
+	// straight to the SL API. Otherwise run A*.
+	var localMinutes int
+	if validate {
+		if cached, ok := graph.travelCache.Load(cacheKey); ok && cached.(int) == noPath {
+			localMinutes = noPath
+		} else {
+			path := graph.FindRoute(start, destination, startTime)
+			if len(path) == 0 {
+				localMinutes = noPath
+			} else {
+				localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+			}
+		}
+	} else {
+		path := graph.FindRoute(start, destination, startTime)
+		if len(path) == 0 {
+			graph.travelCache.Store(cacheKey, noPath)
+			return -1
+		}
+		localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+		graph.travelCache.Store(cacheKey, localMinutes)
+		return localMinutes
+	}
+
+	// validate pass below
 	var result int
-	if len(path) == 0 {
+	if localMinutes == noPath {
 		if graph.skipAPIValidation {
 			return -1
 		}
@@ -121,12 +162,7 @@ func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTim
 		}
 		log.Printf("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
 	} else {
-		last := path[len(path)-1]
-		localMinutes := last.Metadata.Arrival - startTime
-		result = localMinutes
-		if !graph.skipAPIValidation && (localMinutes < 5 || localMinutes > 120) {
-			result = graph.validateWithSLAPI(start, destination, localMinutes)
-		}
+		result = graph.validateWithSLAPI(start, destination, localMinutes)
 	}
 
 	graph.travelCache.Store(cacheKey, result)

@@ -1,13 +1,19 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/durelius/pvt-app/backend/services/middle/internal/controller"
+	"github.com/durelius/pvt-app/backend/services/middle/internal/graph"
 	standardrouter "github.com/durelius/pvt-app/backend/shared/router"
 )
 
 func main() {
+	if _, err := graph.NewWithData(); err != nil {
+		log.Fatalf("failed to load SL graph: %v", err)
+	}
+
 	router, _ := standardrouter.Init()
 
 	//flutter körs på http://localhost:52770/, men behöver använda localhost:8080
