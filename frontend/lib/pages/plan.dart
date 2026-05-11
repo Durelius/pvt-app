@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_debouncer/flutter_debouncer.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../MapboxGeocodingService.dart';
 import '../config.dart';
+import 'home.dart';
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
@@ -22,7 +22,6 @@ class PlanPage extends StatefulWidget {
 }
 
 class _PlanPageState extends State<PlanPage> {
-  final String mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN'] ?? '';
   final Debouncer _debouncer = Debouncer();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -42,7 +41,7 @@ class _PlanPageState extends State<PlanPage> {
 
   // Färgkonstanter
   static const Color kPurple = Color(0xFF63519F);
-  static const Color yellow = Color(0xFFFFDC00);
+  static const Color kYellow = Color(0xFFFFDC00);
 
   // Initierar sidan och hämtar adress för nuvarande position
   @override
@@ -206,7 +205,7 @@ class _PlanPageState extends State<PlanPage> {
                           style: const TextStyle(color: Colors.white),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: yellow),
+                          icon: const Icon(Icons.add_circle_outline, color: kYellow),
                           onPressed: () => _selectSuggestion(_suggestions[index]),
                         ),
                         onTap: () => _selectSuggestion(_suggestions[index]),
@@ -229,7 +228,7 @@ class _PlanPageState extends State<PlanPage> {
                     style: const TextStyle(color: Colors.white),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: yellow),
+                    icon: const Icon(Icons.remove_circle_outline, color: kYellow),
                     onPressed: () => setState(() => _items.removeAt(index)),
                   ),
                 ),
@@ -343,7 +342,7 @@ class _PlanPageState extends State<PlanPage> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(Icons.star, color: yellow, size: 16),
+                            const Icon(Icons.star, color: kYellow, size: 16),
                             const SizedBox(width: 4),
                             Text(
                               '${place['rating']}',

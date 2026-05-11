@@ -6,12 +6,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/gorilla/mux"
 )
 
@@ -24,11 +24,17 @@ func proxyTo(target string) http.HandlerFunc {
 }
 
 func main() {
+	logDir := "/app/logs"
+	if err := os.MkdirAll(logDir, 0755); err == nil {
+		plog.SetLogFilePrefix("api-gateway")
+		plog.EnableLogFile(logDir)
+	}
+
 	r := mux.NewRouter()
 
 	entries, err := os.ReadDir("../services/")
 	if err != nil {
-		log.Fatal(err)
+		plog.Fatal(err)
 	}
 	api := r.PathPrefix("/api").Subrouter()
 
@@ -37,13 +43,13 @@ func main() {
 		pathPrefix := fmt.Sprintf("/api/%s", name)
 		serviceURL := fmt.Sprintf("http://%s:8080", name)
 		r.PathPrefix(pathPrefix).HandlerFunc(proxyTo(serviceURL))
-		log.Printf("running rev proxy to service %s on %s", name, serviceURL)
+		plog.Infof("running rev proxy to service %s on %s", name, serviceURL)
 	}
 
 	api.HandleFunc("/health", healthHandler).Methods(http.MethodGet)
 
-	log.Print("gateway running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", r))
+	plog.Info("gateway running on :8080")
+	plog.Fatal(http.ListenAndServe(":8080", r))
 
 }
 

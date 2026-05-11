@@ -1,247 +1,214 @@
 import 'package:flutter/material.dart';
-import 'package:mitten/pages/home.dart';
-import 'package:mitten/pages/plan.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'models/address_entry.dart';
-import 'models/address_group.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mitten/location_service/location_service.dart';
 
+import 'models/address_entry.dart';
+import 'models/address_group.dart';
+import 'pages/home.dart';
+import 'pages/login.dart';
+import 'pages/plan.dart';
 
+final FlutterLocalNotificationsPlugin notifications =
+    FlutterLocalNotificationsPlugin();
 
-final FlutterLocalNotificationsPlugin notifications = 
-FlutterLocalNotificationsPlugin();
-
+const Color kPurple = Color(0xFF63519F);
+const Color kNavDark = Color(0xFF2D1F5E);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  const AndroidInitializationSettings androidSettings =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  const DarwinInitializationSettings iosSettings =
-      DarwinInitializationSettings(
-    requestAlertPermission: true,
-    requestBadgePermission: true,
-    requestSoundPermission: true,
-  );
-
-  const LinuxInitializationSettings linuxSettings =
-      LinuxInitializationSettings(defaultActionName: 'Open notification');
-
-  const InitializationSettings initSettings = InitializationSettings(
-    android: androidSettings,
-    iOS: iosSettings,
-    macOS: iosSettings, // DarwinInitializationSettings works for both
-    linux: linuxSettings,
-  );
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+  ));
 
   await Hive.initFlutter();
   Hive.registerAdapter(AddressEntryAdapter());
   Hive.registerAdapter(AddressGroupAdapter());
+  await Hive.openBox<AddressEntry>('addressEntries');
 
-  await Hive.openBox<AddressEntry>('addressEntries'); //öppnar/skapar lagringsbox
-  // tillfälligt entries för demonstration, ska senare vara AddressGroup
+  await notifications.initialize(const InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    ),
+    macOS: DarwinInitializationSettings(),
+    linux: LinuxInitializationSettings(defaultActionName: 'Open notification'),
+  ));
 
-  await notifications.initialize(initSettings);
-
-
-  await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: '.env');
   runApp(const MyApp());
 }
-
-Future<void> showTestNotification() async {
-  await notifications.show(
-    0,
-    'Testnotis',
-    'Detta är en lokal testnotis',
-    const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'test_channel',
-        'Testkanal', 
-        importance: Importance.max,
-        priority: Priority.high,
-      ),
-    ),
-  );
-}
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Mitten',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: const Color(0xFF99D98C)), //#99D98C
+        colorScheme: ColorScheme.fromSeed(seedColor: kPurple),
         useMaterial3: true,
+        fontFamily: 'SF Pro Display',
       ),
-      home: const MyHomePage(title: 'Mitten Prototype Page'),
+      routes: {
+        '/': (_) => const LoginScreen(),
+        '/main': (_) => const MainShell(),
+      },
+      initialRoute: '/',
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;  
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MainShell> createState() => _MainShellState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MainShellState extends State<MainShell> {
+  int _currentIndex = 0;
   AppLocation? _currentLocation;
   final LocationService _locationService = LocationService();
-  final GoogleAuthService _authService = GoogleAuthService();
 
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    notifications.resolvePlatformSpecificImplementation<
-    AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
-    _locationRequest();
-  } 
-  int currentPageIndex = 0;
-  String heading = "Mitten Prototype Page";
-  int savedBadgeCount = 1;
+    _requestLocation();
+    notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  }
 
-  Future<void> _locationRequest() async{
-     _currentLocation = await _locationService.getCurrentLocation();
-
-      setState(() {});
-
-     debugPrint("address: ${_currentLocation?.latitude}, ${_currentLocation?.longitude}");
+  Future<void> _requestLocation() async {
+    final loc = await _locationService.getCurrentLocation();
+    if (mounted) setState(() => _currentLocation = loc);
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: showTestNotification,
-            tooltip: 'Visa testnotis',
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              // 2. Call the sign-in method
-              final user = await _authService.signInWithGoogle();
+    final pages = [
+      const HomePage(),
+      PlanPage(currentLocation: _currentLocation),
+      const _SavedPage(),
+    ];
 
-              if (user != null) {
-                // 3. Success! Log the info or navigate to the home screen
-                print('Signed in as: ${user.displayName}');
-                print('Email: ${user.email}');
-                
-                // Navigate to your next page
-                // Navigator.pushReplacementNamed(context, '/home');
-              } else {
-                // User cancelled or there was an error
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sign-in failed. Please try again.')),
-                );
-              }
-            },
-            child: const Text('Sign in with Google'),
-          )
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: (int index) {
-          setState(() {
-            currentPageIndex = index;
-          });
-        },
-        indicatorColor: Color(0xFF99D98C),
-        selectedIndex: currentPageIndex,
-        destinations: <Widget>[
-          NavigationDestination(
-            selectedIcon: Icon(Icons.home),
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon:  Icon(Icons.add),
-            label: 'Plan',
-          ),
-          NavigationDestination(
-            icon: Badge(label: Text('$savedBadgeCount'), child: const Icon(Icons.bookmark)),
-            label: 'Saved',
-          ),
-        ],
-      ),
-      body: <Widget>[
-        // homepage from home.dart
-        HomePage(onIncrement: () => setState(() => savedBadgeCount++)),
-        // this is the planning page
-        PlanPage(currentLocation: _currentLocation),
-        // this is the saved page
-        Card(
-          color: Colors.transparent,
-          shadowColor: Colors.transparent,
-          margin: const EdgeInsets.all(8.0),
-          child: SizedBox.expand(
-            child: Center(
-              child: Text(' $savedBadgeCount new saved locations', style: theme.textTheme.titleLarge),
+    return Scaffold(
+      extendBody: true,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          pages[_currentIndex],
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(40, 0, 40, 8),
+                child: _PillNav(
+                  currentIndex: _currentIndex,
+                  onTap: (i) => setState(() => _currentIndex = i),
+                ),
+              ),
             ),
           ),
-        ),
-      ][currentPageIndex],
+        ],
+      ),
     );
   }
 }
 
-class GoogleAuthService {
-  // Use the standard constructor but with NAMED parameters.
-  // In latest versions, GoogleSignIn() is actually GoogleSignIn({params...})
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
-  );
+class _PillNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onTap;
 
-  Future<GoogleSignInAccount?> signInWithGoogle() async {
-    try {
-      // If this still shows an error, we will use 'dynamic' to force the compiler 
-      // to let us run the code to see if it works at runtime.
-      return await _googleSignIn.signIn();
-    } catch (error) {
-      print("Login failed: $error");
-      return null;
-    }
+  const _PillNav({required this.currentIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: kNavDark,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _NavItem(icon: Icons.person_rounded, index: 0, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.add_circle_outline_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.bookmark_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final int index;
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.index,
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = index == currentIndex;
+    return GestureDetector(
+      onTap: () => onTap(index),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Icon(
+          icon,
+          color: selected ? Colors.white : Colors.white38,
+          size: 28,
+        ),
+      ),
+    );
+  }
+}
+
+class _SavedPage extends StatelessWidget {
+  const _SavedPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFFF5F5F5),
+      body: Center(
+        child: Text(
+          'Saved',
+          style: TextStyle(
+            color: kPurple,
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 }

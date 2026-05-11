@@ -1,4 +1,4 @@
-.PHONY: up down build generate flutter ios android
+.PHONY: up down build generate flutter flutter-dev ios android
 
 BASE_PORT ?= 8080
 
@@ -16,7 +16,10 @@ build: generate
 	docker compose up --build
 
 flutter:
-	cd frontend && dart run flutter_native_splash:create && flutter run
+	cd frontend && dart run flutter_native_splash:create && flutter pub get && flutter run
+
+flutter-dev:
+	cd frontend && dart run flutter_native_splash:create && flutter pub get && flutter run --dart-define=DEV=true
 
 ios:
 	cd frontend && flutter emulators --launch apple_ios_simulator

@@ -25,7 +25,8 @@ class MapboxGeocodingService {
           '?access_token=$token'
           '&autocomplete=true'
           '&limit=5'
-          '&language=sv',  // svenska förslag
+          '&language=sv'
+          '&bbox=17.2,58.9,19.5,60.0',  // Stockholm + Uppsala län (exkl. Västerås, Grisslehamn)
       );
 
       print('Token: $token');           // är token laddad?

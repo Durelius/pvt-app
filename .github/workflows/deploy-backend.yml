@@ -1,0 +1,109 @@
+name: Deploy Backend Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'DockerGateway.prod'
+      - 'DockerService.prod'
+      - 'scripts/generate-compose.prod.sh'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push all images
+        run: |
+          docker build -f DockerGateway.prod \
+            -t $IMAGE_PREFIX/pvt-api-gateway:latest \
+            .
+          docker push $IMAGE_PREFIX/pvt-api-gateway:latest
+
+          for dir in backend/services/*/; do
+            [ -f "$dir/app/main.go" ] || continue
+            name=$(basename "$dir")
+            if [ "$name" = "middle" ]; then
+              dockerfile="DockerMiddle.prod"
+            else
+              dockerfile="DockerService.prod"
+            fi
+            docker build \
+              --build-arg SERVICE_NAME=$name \
+              -f $dockerfile \
+              -t $IMAGE_PREFIX/pvt-$name:latest \
+              .
+            docker push $IMAGE_PREFIX/pvt-$name:latest
+          done
+
+  deploy:
+    name: Deploy
+    environment: production
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    env:
+      DEPLOY_IP: ${{ vars.LINODE_IP }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Generate prod compose file
+        run: IMAGE_PREFIX=$IMAGE_PREFIX bash scripts/generate-compose.prod.sh
+
+      - name: Add SSH Server to Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan $DEPLOY_IP >> ~/.ssh/known_hosts
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_KEY }}
+
+      - name: Copy compose file to server
+        run: |
+          rsync -avz \
+            -e "ssh -o GSSAPIAuthentication=no -o GSSAPIKeyExchange=no -o StrictHostKeyChecking=no" \
+            docker-compose.prod.yml \
+            $DEPLOY_USER@$DEPLOY_IP:/var/www/pvt-backend/docker-compose.prod.yml
+
+      - name: Write .env to server
+        env:
+          PLACES_KEY: ${{ secrets.PLACES_KEY }}
+        run: |
+          printf "PLACES_KEY=%s\n" "$PLACES_KEY" | \
+            ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP \
+            "cat > /var/www/pvt-backend/.env"
+
+      - name: Pull and restart
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP \
+            "docker login ghcr.io -u ${{ github.actor }} --password-stdin"
+
+          ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
+            cd /var/www/pvt-backend &&
+            docker compose -f docker-compose.prod.yml pull &&
+            docker compose -f docker-compose.prod.yml up -d
+          "

@@ -3,10 +3,10 @@ package searchaddress
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
@@ -34,7 +34,7 @@ func AddressSearch(tripOrigin, tripDestination location.Address) (*SLTripRespons
 	from := fmt.Sprintf("%s, %s", tripOrigin.Street, tripOrigin.City)
 	to := fmt.Sprintf("%s, %s", tripDestination.Street, tripDestination.City)
 	query := fmt.Sprintf(TARGET, type_origin, type_sf, url.QueryEscape(from), type_destination, url.QueryEscape(to))
-	log.Print(query)
+	plog.Info(query)
 	req, err := http.NewRequest("GET", query, nil)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func IDSearch(tripOrigin, tripDestination string) (*SLTripResponse, error) {
 	type_sf := "any"
 	type_destination := "any"
 	query := fmt.Sprintf(TARGET, type_origin, type_sf, url.QueryEscape(tripOrigin), type_destination, url.QueryEscape(tripDestination))
-	log.Print(query)
+	plog.Info(query)
 	req, err := http.NewRequest("GET", query, nil)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func PointSearch(tripOrigin, tripDestination location.Point) (*SLTripResponse, e
 	from := fmt.Sprintf("%f:%f", tripOrigin.Latitude, tripOrigin.Longitude)
 	to := fmt.Sprintf("%f:%f", tripDestination.Latitude, tripDestination.Longitude)
 	query := fmt.Sprintf(TARGET, type_origin, type_sf, url.QueryEscape(from), type_destination, url.QueryEscape(to))
-	log.Print(query)
+	plog.Info(query)
 	req, err := http.NewRequest("GET", query, nil)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
+
 func Average(points []location.Point) (*location.Point, error) {
 	n := float64(len(points))
 	if n == 0 {
@@ -60,5 +61,4 @@ func Median(points []location.Point) (*location.Point, error) {
 
 func floatToSixDecimals(num float64) float64 {
 	return math.Round(num*1e6) / 1e6
-
 }
