@@ -12,16 +12,24 @@ import (
 	pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
 )
 
-// routeState is a (stopID, tripID) pair used as the A* state key.
-// Transit routing requires trip awareness in the state: arriving at a stop
-// "on trip X" is distinct from "on trip Y" because continuing on the same
-// trip has no transfer penalty while switching trips does.
+// routeState is the A* state key.
+// tripID distinguishes arriving at a stop on different trips (same stop, different
+// trip = transfer penalty). hasWalked prevents consecutive walk edges — you must
+// board transit before walking again, which stops the algorithm from chaining short
+// walks across the stop network instead of using transit.
 type routeState struct {
-	stopID string
-	tripID string // empty for walk arrivals and the initial state
+	stopID    string
+	tripID    string // empty for walk arrivals and the initial state
+	hasWalked bool
 }
 
-func (s routeState) key() string { return s.stopID + "\x00" + s.tripID }
+func (s routeState) key() string {
+	w := "0"
+	if s.hasWalked {
+		w = "1"
+	}
+	return s.stopID + "\x00" + s.tripID + "\x00" + w
+}
 
 type routeInfo struct {
 	edge     *Edge
@@ -47,7 +55,8 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	for len(open) > 0 {
 		current := heap.Pop(&open).(*pq.Item)
 		curKey := current.Value()
-		stopID, tripID, _ := strings.Cut(curKey, "\x00")
+		parts := strings.SplitN(curKey, "\x00", 3)
+		stopID, tripID, walked := parts[0], parts[1], parts[2]
 		currentStop := graph.GetVertexByID(stopID)
 
 		if stopID == destination.label {
@@ -72,15 +81,18 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 		closed[curKey] = true
 
 		for _, edge := range currentStop.edges {
+			if edge.Metadata.TransferType == WALK_EDGE && walked == "1" {
+				continue // no consecutive walks; must board transit first
+			}
 			newG := edge.calculateG(current.G(), tripID)
 			if newG == -1 {
 				continue
 			}
 			var neighborKey string
 			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: ""}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: "", hasWalked: true}.key()
 			} else {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID, hasWalked: false}.key()
 			}
 			if best, exists := bestG[neighborKey]; !exists || newG < best {
 				bestG[neighborKey] = newG
@@ -100,10 +112,9 @@ func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTim
 	return graph.travelMinutes(start, destination, startTime, false)
 }
 
-// TravelMinutesValidated is like TravelMinutes but cross-checks suspicious results
-// against the SL Journey Planner API. Use this when the local spread is high and
-// you want a more accurate second-pass estimate. Bypasses the cache so results
-// are always fresh; writes the validated result back to cache.
+// TravelMinutesValidated is like TravelMinutes but uses the SL Journey Planner API
+// as a fallback for pairs where A* found no local path. Cached local results are
+// returned as-is without hitting the API.
 func (graph *SLGraph) TravelMinutesValidated(start *Vertex, destination *Vertex, startTime int) int {
 	if graph.skipAPIValidation {
 		return graph.TravelMinutes(start, destination, startTime)
@@ -125,12 +136,16 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 
 	const noPath = -2 // sentinel cached when A* finds no route
 
-	// On validate pass, if we already know there's no local path, skip A* and go
-	// straight to the SL API. Otherwise run A*.
+	// On validate pass, trust cached local results; only fall back to the SL API
+	// for pairs where A* found no path at all.
 	var localMinutes int
 	if validate {
-		if cached, ok := graph.travelCache.Load(cacheKey); ok && cached.(int) == noPath {
-			localMinutes = noPath
+		if cached, ok := graph.travelCache.Load(cacheKey); ok {
+			if cached.(int) == noPath {
+				localMinutes = noPath
+			} else {
+				return cached.(int)
+			}
 		} else {
 			path := graph.FindRoute(start, destination, startTime)
 			if len(path) == 0 {
