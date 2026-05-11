@@ -23,19 +23,24 @@ class _PlanPageState extends State<PlanPage> {
   final Debouncer debouncer = Debouncer();
   final TextEditingController controller = TextEditingController();
 
-  //Mapbox API
+  // Mapbox geocoding service för adressförslag
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
   List<String> suggestions = [];
   String searchTerm = "";
 
-  //addresses stored
+  // Lista över tillagda adresser
   final List<String> items = [];
 
-  //list of results when searching for the middle
+  // Lista över resultat från mittpunktsberäkning
   List<dynamic> _results = [];
+
+  // Färgkonstanter
+  static const Color purple = Color(0xFF63519F);
+  static const Color yellow = Color(0xFFFFDC00);
 
   String _address = "";
 
+  // Initierar sidan och hämtar adress för nuvarande position
   @override
   void initState() {
     super.initState();
@@ -51,7 +56,7 @@ class _PlanPageState extends State<PlanPage> {
     });
   }
 
-  //Hittar addressen baserat på koordinaterna
+  // Omvandlar koordinater till en läsbar adress och lägger till i items
   Future<void> _calculatedAddress(double lat, double lng) async {
     try {
       debugPrint("Hämtar adress för koordinater: $lat, $lng");
@@ -69,17 +74,18 @@ class _PlanPageState extends State<PlanPage> {
     }
   }
 
+  // Hämtar adressförslag från Mapbox när användaren skriver, med debounce
   void onTextChanged(String searchParam) {
     debouncer.debounce(const Duration(milliseconds: 400), () async {
       searchTerm = searchParam;
-      print('Söker efter: $searchTerm'); // skrivs ut när debounce triggar
+      print('Söker efter: $searchTerm');
 
       if (searchTerm.trim().length < 4) {
         setState(() => suggestions = []);
         return;
       }
       final results = await geocoding.getSuggestions(searchTerm);
-      print('Antal förslag: ${results.length}'); // hur många kom tillbaka?
+      print('Antal förslag: ${results.length}');
       List<String> names = [];
       for (var i = 0; i < results.length; i++) {
         names.add(results[i].name);
@@ -88,6 +94,7 @@ class _PlanPageState extends State<PlanPage> {
     });
   }
 
+  // Lägger till ett valt förslag i items och rensar sökfältet
   void selectSuggestion(String address) {
     searchTerm = "";
     setState(() {
@@ -97,6 +104,7 @@ class _PlanPageState extends State<PlanPage> {
     });
   }
 
+  // Lägger till manuellt inskriven adress i items
   void addItem() {
     if (controller.text.trim().isEmpty) return;
     setState(() {
@@ -107,164 +115,261 @@ class _PlanPageState extends State<PlanPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      decoration: const InputDecoration(
-                        hintText: 'Address Please:',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: onTextChanged,
-                      onSubmitted: (_) => addItem(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(icon: const Icon(Icons.add), onPressed: addItem),
-                  ElevatedButton(
-                    onPressed: () => findMiddle(items),
-                    child: const Text('Find the middle'),
-                  ),
-                ],
-              ),
-
-              if (suggestions.isEmpty &&
-                  searchTerm.isNotEmpty)
-                Card(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 1,
-                    itemBuilder: (context, index) =>
-                        ListTile(title: Text("No suggestions found")),
-                  ),
-                ),
-
-              if (suggestions.isNotEmpty)
-                Card(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: suggestions.length,
-                    itemBuilder: (context, index) => ListTile(
-                      leading: const Icon(Icons.location_on),
-                      title: Text(suggestions[index]),
-                      onTap: () => selectSuggestion(suggestions[index]),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) => Container(
-              color: index % 2 == 0 ? Colors.lightGreen : Colors.transparent,
-              child: ListTile(
-                title: Text(items[index]),
-                trailing: IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: () {
-                    setState(() {
-                      items.removeAt(index);
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (_results.isNotEmpty) ... [
-          SizedBox(
-            height: 300,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(
-                  _results[0]['location']['latitude'],
-                  _results[0]['location']['longitude'],
-                ),
-                initialZoom: 13,
-              ),
+    return Container(
+      color: purple,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(0.0),
+            child: Column(
               children: [
-                TileLayer(
-                  urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
-                  userAgentPackageName: 'com.example.app',
-                ),
-                MarkerLayer(
-                  markers: _results.map((place) => Marker(
-                    point: LatLng(
-                      place['location']['latitude'],
-                      place['location']['longitude'],
-                    ),
-                    width: 120,
-                    height: 60,
-                    child: Column(
-                      children: [
-                        const Icon(Icons.place, color: Colors.purple),
-                        Container(
-                          color: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            place['displayName']['text'],
-                            style: const TextStyle(fontSize: 10),
-                            overflow: TextOverflow.ellipsis,
+                // Sökfält för adress
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Add an address...',
+                            hintStyle: const TextStyle(color: Colors.white),
+                            filled: true,
+                            fillColor: purple,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: purple),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: purple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide(color: purple, width: 2),
+                            ),
                           ),
+                          onChanged: onTextChanged,
+                          onSubmitted: (_) => addItem(),
                         ),
-                      ],
-                    ),
-                  )).toList(),
+                      ),
+                    ],
+                  ),
                 ),
+
+                // Visar "inga förslag" om sökning gav tomt resultat
+                if (suggestions.isEmpty && searchTerm.isNotEmpty)
+                  Card(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 1,
+                      itemBuilder: (context, index) =>
+                          const ListTile(title: Text("No suggestions found")),
+                    ),
+                  ),
+
+                // Visar adressförslag från Mapbox
+                if (suggestions.isNotEmpty)
+                  Card(
+                    color: purple,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: suggestions.length,
+                      itemBuilder: (context, index) => ListTile(
+                        leading: const Icon(
+                          Icons.location_on_rounded,
+                          color: Colors.white,
+                        ),
+                        title: Text(
+                          suggestions[index],
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add_circle_outline, color: yellow),
+                          onPressed: () => selectSuggestion(suggestions[index]),
+                        ),
+                        onTap: () => selectSuggestion(suggestions[index]),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-        ],
+
+          // Lista över tillagda adresser
+          Expanded(
+            child: ListView.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) => Container(
+                color: purple,
+                child: ListTile(
+                  title: Text(
+                    items[index],
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.remove_circle_outline, color: yellow),
+                    onPressed: () {
+                      setState(() {
+                        items.removeAt(index);
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Knapp för att hitta mittpunkten, visas när minst 2 adresser är tillagda
+          if (items.length >= 2)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => findMiddle(items),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                  ),
+                  child: const Text(
+                    'Find the middle',
+                    style: TextStyle(color: purple),
+                  ),
+                ),
+              ),
+            ),
+
+          // Karta som visar resultat
+          if (_results.isNotEmpty) ...[
+            SizedBox(
+              height: 300,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: LatLng(
+                    _results[0]['location']['latitude'],
+                    _results[0]['location']['longitude'],
+                  ),
+                  initialZoom: 13,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
+                    userAgentPackageName: 'com.example.app',
+                  ),
+                  MarkerLayer(
+                    markers: _results
+                        .map((place) => Marker(
+                              point: LatLng(
+                                place['location']['latitude'],
+                                place['location']['longitude'],
+                              ),
+                              width: 120,
+                              height: 60,
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.place_rounded, color: purple),
+                                  Container(
+                                    color: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      place['displayName']['text'],
+                                      style: const TextStyle(fontSize: 10),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Lista över resultat med namn, rating och adress
           Expanded(
             child: ListView.builder(
               itemCount: _results.length,
               itemBuilder: (context, index) {
                 final place = _results[index];
-                return ListTile(
-                  leading: const Icon(Icons.restaurant),
-                  title: Text(place['displayName']['text']),
-                  subtitle: Text(place['formattedAddress']),
-                  trailing: Text('⭐ ${place['rating']}'),
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 115, 102, 157),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        place['displayName']['text'],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: yellow, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${place['rating']}',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, color: Colors.white, size: 16),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              place['formattedAddress'],
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
+  // Skickar adresserna till backend och hämtar platser nära mittpunkten
   Future<void> findMiddle(List<String> addresses) async {
     final addressJson = jsonEncode(
       addresses.map((a) {
         final parts = a.split(',');
-        final zipAndCity = parts[1].trim().split(
-          ' ',
-        ); // postnummer och postort hamnar på samma line
-        final zip = "${zipAndCity[0]} ${zipAndCity[1]}"
-            .trim(); // "xxx xx" för postnummer
-        final city = zipAndCity.sublist(2).join(' ').trim(); // "postort"
+        final zipAndCity = parts[1].trim().split(' ');
+        final zip = "${zipAndCity[0]} ${zipAndCity[1]}".trim();
+        final city = zipAndCity.sublist(2).join(' ').trim();
         return {"street": parts[0].trim(), "zip": zip, "city": city};
       }).toList(),
     );
 
-    final uri = Uri.parse('http://localhost:8080/api/middle/v1/middleplaces')
-        .replace(
-          queryParameters: {
-            'addresses': addressJson,
-            'location_type': 'restaurant',
-          },
-        );
+    final uri =
+        Uri.parse('http://localhost:8080/api/middle/v1/middleplaces').replace(
+      queryParameters: {
+        'addresses': addressJson,
+        'location_type': 'restaurant',
+      },
+    );
 
     final response = await http.get(uri);
 
@@ -279,4 +384,3 @@ class _PlanPageState extends State<PlanPage> {
     }
   }
 }
-
