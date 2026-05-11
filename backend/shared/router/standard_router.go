@@ -2,11 +2,11 @@ package standardrouter
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"time"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/gorilla/mux"
 	"golang.org/x/time/rate"
 )
@@ -21,9 +21,8 @@ func Init() (router, authRouter *mux.Router) {
 	r.Use(rl.Middleware)
 
 	api.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)   // sets HTTP status 200
-		w.Write([]byte("OK"))          // writes "OK" to the response body
-		log.Println("Health check OK") // optional logging
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
 	}).Methods("GET")
 
 	//auth router is for paths that do require authentication
@@ -31,8 +30,7 @@ func Init() (router, authRouter *mux.Router) {
 	auth.Use(AuthMiddleware)
 
 	port := ":8080"
-	log.Printf("%s initialized on %s", serviceName, port)
-	// log.Fatal(http.ListenAndServe(port, r))
+	plog.Infof("%s initialized on %s", serviceName, port)
 	return api, auth
 
 }
@@ -41,6 +39,6 @@ func Start(r *mux.Router) {
 
 	serviceName := os.Getenv("SERVICE_NAME")
 	port := ":8080"
-	log.Printf("%s starting on %s", serviceName, port)
-	log.Fatal(http.ListenAndServe(port, r))
+	plog.Infof("%s starting on %s", serviceName, port)
+	plog.Fatal(http.ListenAndServe(port, r))
 }

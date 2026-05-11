@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+var slClient = &http.Client{Timeout: 5 * time.Second}
 
 type slTripResponse struct {
 	Journeys []struct {
@@ -28,7 +31,7 @@ func slPointSearch(fromLat, fromLon, toLat, toLon float64) (int, error) {
 	}
 	req.Header.Set("User-Agent", "MITTEN")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := slClient.Do(req)
 	if err != nil {
 		return 0, err
 	}

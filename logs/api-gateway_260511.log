@@ -1,0 +1,10 @@
+04:41:58: <6>INFO:  running rev proxy to service auth on http://auth:8080 
+04:41:58: <6>INFO:  running rev proxy to service middle on http://middle:8080 
+04:41:58: <6>INFO:  running rev proxy to service sl on http://sl:8080 
+04:41:58: <6>INFO:  gateway running on :8080
+ 
+04:50:19: <6>INFO:  running rev proxy to service auth on http://auth:8080 
+04:50:19: <6>INFO:  running rev proxy to service middle on http://middle:8080 
+04:50:19: <6>INFO:  running rev proxy to service sl on http://sl:8080 
+04:50:19: <6>INFO:  gateway running on :8080
+ 

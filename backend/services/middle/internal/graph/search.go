@@ -2,26 +2,34 @@ package graph
 
 import (
 	"container/heap"
-	"log"
 	"math"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	plog "github.com/durelius/go-prodlog"
 	pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
 )
 
-// routeState is a (stopID, tripID) pair used as the A* state key.
-// Transit routing requires trip awareness in the state: arriving at a stop
-// "on trip X" is distinct from "on trip Y" because continuing on the same
-// trip has no transfer penalty while switching trips does.
+// routeState is the A* state key.
+// tripID distinguishes arriving at a stop on different trips (same stop, different
+// trip = transfer penalty). hasWalked prevents consecutive walk edges — you must
+// board transit before walking again, which stops the algorithm from chaining short
+// walks across the stop network instead of using transit.
 type routeState struct {
-	stopID string
-	tripID string // empty for walk arrivals and the initial state
+	stopID    string
+	tripID    string // empty for walk arrivals and the initial state
+	hasWalked bool
 }
 
-func (s routeState) key() string { return s.stopID + "\x00" + s.tripID }
+func (s routeState) key() string {
+	w := "0"
+	if s.hasWalked {
+		w = "1"
+	}
+	return s.stopID + "\x00" + s.tripID + "\x00" + w
+}
 
 type routeInfo struct {
 	edge     *Edge
@@ -47,7 +55,8 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	for len(open) > 0 {
 		current := heap.Pop(&open).(*pq.Item)
 		curKey := current.Value()
-		stopID, tripID, _ := strings.Cut(curKey, "\x00")
+		parts := strings.SplitN(curKey, "\x00", 3)
+		stopID, tripID, walked := parts[0], parts[1], parts[2]
 		currentStop := graph.GetVertexByID(stopID)
 
 		if stopID == destination.label {
@@ -56,7 +65,7 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 			for key != startKey {
 				info, ok := cameFrom[key]
 				if !ok {
-					log.Println("route reconstruction error")
+					plog.Warning("route reconstruction error")
 					return nil
 				}
 				path = append(path, info.edge)
@@ -72,15 +81,18 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 		closed[curKey] = true
 
 		for _, edge := range currentStop.edges {
+			if edge.Metadata.TransferType == WALK_EDGE && walked == "1" {
+				continue // no consecutive walks; must board transit first
+			}
 			newG := edge.calculateG(current.G(), tripID)
 			if newG == -1 {
 				continue
 			}
 			var neighborKey string
 			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: ""}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: "", hasWalked: true}.key()
 			} else {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID, hasWalked: false}.key()
 			}
 			if best, exists := bestG[neighborKey]; !exists || newG < best {
 				bestG[neighborKey] = newG
@@ -94,24 +106,68 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	return nil
 }
 
-// TravelMinutes returns the total travel time in minutes from start to destination,
-// or -1 if no route is found. Results are cached. Suspicious results (< 5 or > 120 min)
-// are cross-checked against the SL Journey Planner API. If no local path exists at all,
-// the SL API is used as a fallback.
+// TravelMinutes returns the local-graph travel time in minutes (A* only, no SL API).
+// Returns -1 if no route found. Results are cached.
 func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTime int) int {
+	return graph.travelMinutes(start, destination, startTime, false)
+}
+
+// TravelMinutesValidated is like TravelMinutes but uses the SL Journey Planner API
+// as a fallback for pairs where A* found no local path. Cached local results are
+// returned as-is without hitting the API.
+func (graph *SLGraph) TravelMinutesValidated(start *Vertex, destination *Vertex, startTime int) int {
+	if graph.skipAPIValidation {
+		return graph.TravelMinutes(start, destination, startTime)
+	}
+	return graph.travelMinutes(start, destination, startTime, true)
+}
+
+func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTime int, validate bool) int {
 	if start.label == destination.label {
 		return 0
 	}
 
 	cacheKey := start.label + ":" + destination.label
-	if cached, ok := graph.travelCache.Load(cacheKey); ok {
-		return cached.(int)
+	if !validate {
+		if cached, ok := graph.travelCache.Load(cacheKey); ok {
+			return cached.(int)
+		}
 	}
 
-	path := graph.FindRoute(start, destination, startTime)
+	const noPath = -2 // sentinel cached when A* finds no route
 
+	// On validate pass, trust cached local results; only fall back to the SL API
+	// for pairs where A* found no path at all.
+	var localMinutes int
+	if validate {
+		if cached, ok := graph.travelCache.Load(cacheKey); ok {
+			if cached.(int) == noPath {
+				localMinutes = noPath
+			} else {
+				return cached.(int)
+			}
+		} else {
+			path := graph.FindRoute(start, destination, startTime)
+			if len(path) == 0 {
+				localMinutes = noPath
+			} else {
+				localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+			}
+		}
+	} else {
+		path := graph.FindRoute(start, destination, startTime)
+		if len(path) == 0 {
+			graph.travelCache.Store(cacheKey, noPath)
+			return -1
+		}
+		localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+		graph.travelCache.Store(cacheKey, localMinutes)
+		return localMinutes
+	}
+
+	// validate pass below
 	var result int
-	if len(path) == 0 {
+	if localMinutes == noPath {
 		if graph.skipAPIValidation {
 			return -1
 		}
@@ -119,14 +175,9 @@ func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTim
 		if result < 0 {
 			return -1
 		}
-		log.Printf("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
+		plog.Infof("no local path for %s→%s, SL API returned %d min", start.Metadata().StopName, destination.Metadata().StopName, result)
 	} else {
-		last := path[len(path)-1]
-		localMinutes := last.Metadata.Arrival - startTime
-		result = localMinutes
-		if !graph.skipAPIValidation && (localMinutes < 5 || localMinutes > 120) {
-			result = graph.validateWithSLAPI(start, destination, localMinutes)
-		}
+		result = graph.validateWithSLAPI(start, destination, localMinutes)
 	}
 
 	graph.travelCache.Store(cacheKey, result)
@@ -145,7 +196,7 @@ func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 	}
 	minutes, err := slPointSearch(fromLat, fromLon, toLat, toLon)
 	if err != nil {
-		log.Printf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
+		plog.Warningf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
 		return -1
 	}
 	return minutes
@@ -154,13 +205,13 @@ func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes int) int {
 	apiMinutes := graph.fetchSLAPIMinutes(start, destination)
 	if apiMinutes < 0 {
-		log.Printf("SL API validation failed (%s→%s), keeping local result %d min", start.Metadata().StopName, destination.Metadata().StopName, localMinutes)
+		plog.Warningf("SL API validation failed (%s→%s), keeping local result %d min", start.Metadata().StopName, destination.Metadata().StopName, localMinutes)
 		return localMinutes
 	}
 
 	diff := math.Abs(float64(apiMinutes-localMinutes)) / float64(localMinutes)
 	if diff > 0.2 {
-		log.Printf("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result",
+		plog.Infof("SL API result (%d min) differs from local (%d min) by %.0f%% for %s→%s, using API result",
 			apiMinutes, localMinutes, diff*100, start.Metadata().StopName, destination.Metadata().StopName)
 		return apiMinutes
 	}

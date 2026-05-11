@@ -5,3 +5,5 @@
 **/tmp/
 docker-compose.yml
 .DS_Store
+logs/*
+memory/*

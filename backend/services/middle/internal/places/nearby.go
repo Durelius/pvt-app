@@ -38,26 +38,27 @@ type PlacesResponse struct {
 }
 
 type Place struct {
+	ID               string        `json:"id"`
 	DisplayName      LocalizedText `json:"displayName"`
 	FormattedAddress string        `json:"formattedAddress"`
 	Rating           float64       `json:"rating"`
-	Location         LatLng        `json:"location"` // koordinater
+	Location         LatLng        `json:"location"`
 }
 
 type LocalizedText struct {
 	Text string `json:"text"`
 }
 
-func Nearby(point location.Point, locationType string) ([]Place, error) {
+func Nearby(point location.Point, locationType string, radiusMeters float64) ([]Place, error) {
 
 	apiKey := os.Getenv("PLACES_KEY")
 	reqBody := NearbySearchRequest{
 		IncludedTypes:  []string{locationType},
-		MaxResultCount: 5,
+		MaxResultCount: 20,
 		LocationRestriction: LocationRestriction{
 			Circle: Circle{
 				Center: LatLng{Latitude: point.Latitude, Longitude: point.Longitude},
-				Radius: 1000,
+				Radius: radiusMeters,
 			},
 		},
 	}
@@ -74,7 +75,7 @@ func Nearby(point location.Point, locationType string) ([]Place, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	req.Header.Set("X-Goog-FieldMask", "places.displayName,places.formattedAddress,places.rating,places.location")
+	req.Header.Set("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.rating,places.location")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

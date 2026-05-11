@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-API="https://tidochplats.se/api"
+API="${API:-https://tidochplats.se/api}"
 SL="https://journeyplanner.integration.sl.se/v2/trips"
 
 # ── Edit these 3 addresses ───────────────────────────────────────────────────

@@ -2,11 +2,11 @@ package graph
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"sort"
 	"strings"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/gocarina/gocsv"
 )
 
@@ -22,7 +22,11 @@ func (graph *SLGraph) initFromDir(dir string) error {
 }
 
 func (graph *SLGraph) init() error {
-	return graph.initFromPaths(PATH_AGENCY, PATH_ROUTES, PATH_STOPTIMES, PATH_STOPS, PATH_TRIPS)
+	dir := os.Getenv("SL_DATA_DIR")
+	if dir == "" {
+		dir = "/app/backend/services/middle/data"
+	}
+	return graph.initFromDir(dir)
 }
 
 func (graph *SLGraph) initFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath string) error {
@@ -82,7 +86,7 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 			}
 			dist, err := ApproxDistanceMeters(a, b)
 			if err != nil {
-				log.Printf("distance error: %v", err)
+				plog.Warningf("distance error: %v", err)
 				continue
 			}
 			if dist < 400 {

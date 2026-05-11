@@ -2,14 +2,20 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 
+	plog "github.com/durelius/go-prodlog"
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	logDir := "/app/logs"
+	if err := os.MkdirAll(logDir, 0755); err == nil {
+		plog.SetLogFilePrefix("auth")
+		plog.EnableLogFile(logDir)
+	}
+
 	r := mux.NewRouter()
 
 	serviceName := os.Getenv("SERVICE_NAME")
@@ -20,8 +26,8 @@ func main() {
 	sub.HandleFunc("/example", exampleHandler).Methods(http.MethodGet)
 
 	port := ":8080"
-	log.Printf("%s listening on %s", serviceName, port)
-	log.Fatal(http.ListenAndServe(port, r))
+	plog.Infof("%s listening on %s", serviceName, port)
+	plog.Fatal(http.ListenAndServe(port, r))
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
