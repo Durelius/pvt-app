@@ -3,13 +3,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_debouncer/flutter_debouncer.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:mitten/location_service/location_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../MapboxGeocodingService.dart';
-import 'home.dart';
+import '../config.dart';
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
@@ -20,103 +22,121 @@ class PlanPage extends StatefulWidget {
 }
 
 class _PlanPageState extends State<PlanPage> {
-  final Debouncer debouncer = Debouncer();
-  final TextEditingController controller = TextEditingController();
+  final String mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN'] ?? '';
+  final Debouncer _debouncer = Debouncer();
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
 
   // Mapbox geocoding service för adressförslag
-  final MapboxGeocodingService geocoding = MapboxGeocodingService();
-  List<String> suggestions = [];
-  String searchTerm = "";
+  final MapboxGeocodingService _geocoding = MapboxGeocodingService();
+  List<Address> _suggestions = [];
+  String _searchTerm = "";
+  int _searchVersion = 0;
 
   // Lista över tillagda adresser
-  final List<String> items = [];
+  final List<Address> _items = [];
 
   // Lista över resultat från mittpunktsberäkning
   List<dynamic> _results = [];
+  bool _isLoading = false;
 
   // Färgkonstanter
-  static const Color purple = Color(0xFF63519F);
+  static const Color kPurple = Color(0xFF63519F);
   static const Color yellow = Color(0xFFFFDC00);
-
-  String _address = "";
 
   // Initierar sidan och hämtar adress för nuvarande position
   @override
   void initState() {
     super.initState();
-    double lat = widget.currentLocation?.latitude ?? 0;
-    double lng = widget.currentLocation?.longitude ?? 0;
-    if (lat == 0 || lng == 0) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        _calculatedAddress(lat, lng);
-      });
-    });
+    final lat = widget.currentLocation?.latitude ?? 0;
+    final lng = widget.currentLocation?.longitude ?? 0;
+    if (lat == 0 || lng == 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveCurrentAddress(lat, lng));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   // Omvandlar koordinater till en läsbar adress och lägger till i items
-  Future<void> _calculatedAddress(double lat, double lng) async {
+  Future<void> _resolveCurrentAddress(double lat, double lng) async {
     try {
-      debugPrint("Hämtar adress för koordinater: $lat, $lng");
-      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) {
-        return;
-      }
-      Placemark place = placemarks.first;
-      setState(() {
-        _address = "${place.street}, ${place.country}";
-        items.add(_address);
-      });
-    } catch (e) {
-      return;
-    }
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isEmpty) return;
+      final p = placemarks.first;
+      final label = [p.street, p.locality, p.country]
+          .where((s) => s != null && s.isNotEmpty)
+          .join(', ');
+      setState(() => _items.add(Address(name: label, lat: lat, lon: lng)));
+    } catch (_) {}
   }
 
   // Hämtar adressförslag från Mapbox när användaren skriver, med debounce
-  void onTextChanged(String searchParam) {
-    debouncer.debounce(const Duration(milliseconds: 400), () async {
-      searchTerm = searchParam;
-      print('Söker efter: $searchTerm');
-
-      if (searchTerm.trim().length < 4) {
-        setState(() => suggestions = []);
+  void _onTextChanged(String value) {
+    _debouncer.debounce(const Duration(milliseconds: 400), () async {
+      _searchTerm = value;
+      if (_searchTerm.trim().length < 4) {
+        setState(() => _suggestions = []);
         return;
       }
-      final results = await geocoding.getSuggestions(searchTerm);
-      print('Antal förslag: ${results.length}');
-      List<String> names = [];
-      for (var i = 0; i < results.length; i++) {
-        names.add(results[i].name);
+      final version = ++_searchVersion;
+      final results = await _geocoding.getSuggestions(_searchTerm);
+      if (version == _searchVersion) {
+        setState(() => _suggestions = results);
       }
-      setState(() => suggestions = names);
     });
   }
 
   // Lägger till ett valt förslag i items och rensar sökfältet
-  void selectSuggestion(String address) {
-    searchTerm = "";
+  void _selectSuggestion(Address address) {
+    _searchVersion++;
+    _focusNode.unfocus();
     setState(() {
-      items.add(address);
-      suggestions = [];
-      controller.clear();
+      _items.add(address);
+      _suggestions = [];
+      _searchTerm = '';
+      _controller.clear();
     });
   }
 
-  // Lägger till manuellt inskriven adress i items
-  void addItem() {
-    if (controller.text.trim().isEmpty) return;
-    setState(() {
-      items.add(controller.text.trim());
-      controller.clear();
-    });
+  // Skickar koordinaterna till backend och hämtar platser nära mittpunkten
+  Future<void> _findMiddle() async {
+    setState(() { _isLoading = true; _results = []; });
+    try {
+      final pointsJson = jsonEncode(
+        _items.map((a) => {'lat': a.lat, 'lon': a.lon}).toList(),
+      );
+      final uri = Uri.parse('$apiBase/middle/v1/middleplaces').replace(
+        queryParameters: {'points': pointsJson, 'location_type': 'restaurant'},
+      );
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        setState(() => _results = jsonDecode(response.body));
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not find results (${response.statusCode})')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error — is the server running?')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: purple,
+      color: kPurple,
       child: Column(
         children: [
           Padding(
@@ -131,28 +151,28 @@ class _PlanPageState extends State<PlanPage> {
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: controller,
+                          controller: _controller,
+                          focusNode: _focusNode,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'Add an address...',
                             hintStyle: const TextStyle(color: Colors.white),
                             filled: true,
-                            fillColor: purple,
+                            fillColor: kPurple,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(color: purple),
+                              borderSide: const BorderSide(color: kPurple),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(color: purple),
+                              borderSide: const BorderSide(color: kPurple),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(color: purple, width: 2),
+                              borderSide: const BorderSide(color: kPurple, width: 2),
                             ),
                           ),
-                          onChanged: onTextChanged,
-                          onSubmitted: (_) => addItem(),
+                          onChanged: _onTextChanged,
                         ),
                       ),
                     ],
@@ -160,7 +180,7 @@ class _PlanPageState extends State<PlanPage> {
                 ),
 
                 // Visar "inga förslag" om sökning gav tomt resultat
-                if (suggestions.isEmpty && searchTerm.isNotEmpty)
+                if (_suggestions.isEmpty && _searchTerm.isNotEmpty)
                   Card(
                     child: ListView.builder(
                       shrinkWrap: true,
@@ -172,27 +192,24 @@ class _PlanPageState extends State<PlanPage> {
                   ),
 
                 // Visar adressförslag från Mapbox
-                if (suggestions.isNotEmpty)
+                if (_suggestions.isNotEmpty)
                   Card(
-                    color: purple,
+                    color: kPurple,
                     child: ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: suggestions.length,
+                      itemCount: _suggestions.length,
                       itemBuilder: (context, index) => ListTile(
-                        leading: const Icon(
-                          Icons.location_on_rounded,
-                          color: Colors.white,
-                        ),
+                        leading: const Icon(Icons.location_on_rounded, color: Colors.white),
                         title: Text(
-                          suggestions[index],
+                          _suggestions[index].name,
                           style: const TextStyle(color: Colors.white),
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.add_circle_outline, color: yellow),
-                          onPressed: () => selectSuggestion(suggestions[index]),
+                          onPressed: () => _selectSuggestion(_suggestions[index]),
                         ),
-                        onTap: () => selectSuggestion(suggestions[index]),
+                        onTap: () => _selectSuggestion(_suggestions[index]),
                       ),
                     ),
                   ),
@@ -203,21 +220,17 @@ class _PlanPageState extends State<PlanPage> {
           // Lista över tillagda adresser
           Expanded(
             child: ListView.builder(
-              itemCount: items.length,
+              itemCount: _items.length,
               itemBuilder: (context, index) => Container(
-                color: purple,
+                color: kPurple,
                 child: ListTile(
                   title: Text(
-                    items[index],
+                    _items[index].name,
                     style: const TextStyle(color: Colors.white),
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle_outline, color: yellow),
-                    onPressed: () {
-                      setState(() {
-                        items.removeAt(index);
-                      });
-                    },
+                    onPressed: () => setState(() => _items.removeAt(index)),
                   ),
                 ),
               ),
@@ -225,20 +238,21 @@ class _PlanPageState extends State<PlanPage> {
           ),
 
           // Knapp för att hitta mittpunkten, visas när minst 2 adresser är tillagda
-          if (items.length >= 2)
+          if (_items.length >= 2)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => findMiddle(items),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                  ),
-                  child: const Text(
-                    'Find the middle',
-                    style: TextStyle(color: purple),
-                  ),
+                  onPressed: _isLoading ? null : _findMiddle,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(color: kPurple, strokeWidth: 2),
+                        )
+                      : const Text('Find the middle', style: TextStyle(color: kPurple)),
                 ),
               ),
             ),
@@ -250,8 +264,8 @@ class _PlanPageState extends State<PlanPage> {
               child: FlutterMap(
                 options: MapOptions(
                   initialCenter: LatLng(
-                    _results[0]['location']['latitude'],
-                    _results[0]['location']['longitude'],
+                    (_results[0]['location']['latitude'] as num).toDouble(),
+                    (_results[0]['location']['longitude'] as num).toDouble(),
                   ),
                   initialZoom: 13,
                 ),
@@ -265,14 +279,14 @@ class _PlanPageState extends State<PlanPage> {
                     markers: _results
                         .map((place) => Marker(
                               point: LatLng(
-                                place['location']['latitude'],
-                                place['location']['longitude'],
+                                (place['location']['latitude'] as num).toDouble(),
+                                (place['location']['longitude'] as num).toDouble(),
                               ),
                               width: 120,
                               height: 60,
                               child: Column(
                                 children: [
-                                  const Icon(Icons.place_rounded, color: purple),
+                                  const Icon(Icons.place_rounded, color: kPurple),
                                   Container(
                                     color: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -298,49 +312,62 @@ class _PlanPageState extends State<PlanPage> {
               itemCount: _results.length,
               itemBuilder: (context, index) {
                 final place = _results[index];
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color.fromARGB(255, 115, 102, 157),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        place['displayName']['text'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: yellow, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${place['rating']}',
-                            style: const TextStyle(color: Colors.white),
+                final lat = (place['location']?['latitude'] as num?)?.toDouble();
+                final lng = (place['location']?['longitude'] as num?)?.toDouble();
+                return GestureDetector(
+                  onTap: lat != null && lng != null
+                      ? () {
+                          final uri = Uri.parse(
+                              'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                          launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      : null,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 115, 102, 157),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          place['displayName']['text'],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, color: Colors.white, size: 16),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              place['formattedAddress'],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: yellow, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${place['rating']}',
                               style: const TextStyle(color: Colors.white),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, color: Colors.white, size: 16),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                place['formattedAddress'],
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            if (lat != null && lng != null)
+                              const Icon(Icons.open_in_new, color: Colors.white54, size: 14),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -349,38 +376,5 @@ class _PlanPageState extends State<PlanPage> {
         ],
       ),
     );
-  }
-
-  // Skickar adresserna till backend och hämtar platser nära mittpunkten
-  Future<void> findMiddle(List<String> addresses) async {
-    final addressJson = jsonEncode(
-      addresses.map((a) {
-        final parts = a.split(',');
-        final zipAndCity = parts[1].trim().split(' ');
-        final zip = "${zipAndCity[0]} ${zipAndCity[1]}".trim();
-        final city = zipAndCity.sublist(2).join(' ').trim();
-        return {"street": parts[0].trim(), "zip": zip, "city": city};
-      }).toList(),
-    );
-
-    final uri =
-        Uri.parse('http://localhost:8080/api/middle/v1/middleplaces').replace(
-      queryParameters: {
-        'addresses': addressJson,
-        'location_type': 'restaurant',
-      },
-    );
-
-    final response = await http.get(uri);
-
-    if (response.statusCode == 200) {
-      print(response.body);
-      final data = jsonDecode(response.body);
-      setState(() {
-        _results = data;
-      });
-    } else {
-      print('Fel: ${response.statusCode}');
-    }
   }
 }
