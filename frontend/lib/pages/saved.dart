@@ -25,9 +25,9 @@ class _SavedPageState extends State<SavedPage> {
 
   
   final List<FakeGroup> _groups = [
-    FakeGroup(name: "My First Group", icon: Icons.group_rounded),
-    FakeGroup(name: "Placeholder", icon: Icons.group_rounded),
-    FakeGroup(name: "Trip Plan", icon: Icons.group_rounded),
+    FakeGroup(name: "My First Group", icon: Icons.groups_outlined),
+    FakeGroup(name: "Placeholder", icon: Icons.groups_outlined),
+    FakeGroup(name: "Trip Plan", icon: Icons.groups_outlined),
   ];
 
   @override
