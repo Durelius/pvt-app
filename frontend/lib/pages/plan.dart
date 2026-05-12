@@ -25,6 +25,7 @@ class _PlanPageState extends State<PlanPage> {
   final Debouncer _debouncer = Debouncer();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  final MapController _mapController = MapController();
 
   // Mapbox geocoding service för adressförslag
   final MapboxGeocodingService _geocoding = MapboxGeocodingService();
@@ -131,6 +132,19 @@ class _PlanPageState extends State<PlanPage> {
       setState(() => _isLoading = false);
     }
   }
+  int _selectedIndex = 0;
+
+  void _selectPlace(int index) {
+    setState(() => _selectedIndex = index);
+    // Flytta kartan till den valda platsen
+    _mapController.move(
+      LatLng(
+        (_results[index]['location']['latitude'] as num).toDouble(),
+        (_results[index]['location']['longitude'] as num).toDouble(),
+      ),
+      14,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -217,20 +231,20 @@ class _PlanPageState extends State<PlanPage> {
           ),
 
           // Lista över tillagda adresser
-          Expanded(
-            child: ListView.builder(
-              itemCount: _items.length,
-              itemBuilder: (context, index) => Container(
-                color: kPurple,
-                child: ListTile(
-                  title: Text(
-                    _items[index].name,
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: kYellow),
-                    onPressed: () => setState(() => _items.removeAt(index)),
-                  ),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _items.length,
+            itemBuilder: (context, index) => Container(
+              color: kPurple,
+              child: ListTile(
+                title: Text(
+                  _items[index].name,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.remove_circle_outline, color: kYellow),
+                  onPressed: () => setState(() => _items.removeAt(index)),
                 ),
               ),
             ),
@@ -238,8 +252,9 @@ class _PlanPageState extends State<PlanPage> {
 
           // Knapp för att hitta mittpunkten, visas när minst 2 adresser är tillagda
           if (_items.length >= 2)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -255,123 +270,187 @@ class _PlanPageState extends State<PlanPage> {
                 ),
               ),
             ),
-
+          ),
           // Karta som visar resultat
-          if (_results.isNotEmpty) ...[
-            SizedBox(
-              height: 300,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: LatLng(
-                    (_results[0]['location']['latitude'] as num).toDouble(),
-                    (_results[0]['location']['longitude'] as num).toDouble(),
-                  ),
-                  initialZoom: 13,
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
-                    userAgentPackageName: 'com.example.app',
-                  ),
-                  MarkerLayer(
-                    markers: _results
-                        .map((place) => Marker(
-                              point: LatLng(
-                                (place['location']['latitude'] as num).toDouble(),
-                                (place['location']['longitude'] as num).toDouble(),
-                              ),
-                              width: 120,
-                              height: 60,
-                              child: Column(
-                                children: [
-                                  const Icon(Icons.place_rounded, color: kPurple),
-                                  Container(
-                                    color: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                                    child: Text(
-                                      place['displayName']['text'],
-                                      style: const TextStyle(fontSize: 10),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
+if (_results.isNotEmpty) ...[
+  Expanded(
+    child: Stack(
+      children: [
+        // Kartan tar upp hela ytan
+        FlutterMap(
+          options: MapOptions(
+            initialCenter: LatLng(
+              (_results[0]['location']['latitude'] as num).toDouble(),
+              (_results[0]['location']['longitude'] as num).toDouble(),
             ),
-          ],
-
-          // Lista över resultat med namn, rating och adress
-          Expanded(
-            child: ListView.builder(
-              itemCount: _results.length,
-              itemBuilder: (context, index) {
-                final place = _results[index];
-                final lat = (place['location']?['latitude'] as num?)?.toDouble();
-                final lng = (place['location']?['longitude'] as num?)?.toDouble();
-                return GestureDetector(
-                  onTap: lat != null && lng != null
-                      ? () {
-                          final uri = Uri.parse(
-                              'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                          launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      : null,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 115, 102, 157),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+            initialZoom: 13,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}@2x?access_token=$mapboxToken',
+              userAgentPackageName: 'com.example.app',
+            ),
+            MarkerLayer(
+              markers: _results.asMap().entries.map((entry) {
+                final i = entry.key;
+                final place = entry.value;
+                final isSelected = _selectedIndex == i;
+                return Marker(
+                  point: LatLng(
+                    (place['location']['latitude'] as num).toDouble(),
+                    (place['location']['longitude'] as num).toDouble(),
+                  ),
+                  width: 140,
+                  height: 70,
+                  child: GestureDetector(
+                    onTap: () => _selectPlace(i),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          place['displayName']['text'],
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? kYellow : kPurple,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(Icons.restaurant,
+                            color: isSelected ? kPurple : Colors.white,
+                            size: 16),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.star, color: kYellow, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${place['rating']}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on, color: Colors.white, size: 16),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                place['formattedAddress'],
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                            if (lat != null && lng != null)
-                              const Icon(Icons.open_in_new, color: Colors.white54, size: 14),
-                          ],
+                        Container(
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            place['displayName']['text'],
+                            style: const TextStyle(fontSize: 10),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 );
-              },
+              }).toList(),
             ),
-          ),
+          ],
+        ),
+
+        // Bottom sheet ovanpå kartan
+        DraggableScrollableSheet(
+          initialChildSize: 0.40,
+          minChildSize: 0.18,
+          maxChildSize: 0.75,
+          builder: (context, scrollController) {
+            final place = _results[_selectedIndex];
+            final lat = (place['location']['latitude'] as num).toDouble();
+            final lng = (place['location']['longitude'] as num).toDouble();
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(blurRadius: 12, color: Colors.black26)],
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                children: [
+                  // Handtag
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      width: 36, height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+
+                  // Snabbval — lista med alla resultat
+                  SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _results.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) => ChoiceChip(
+                        label: Text(_results[i]['displayName']['text']),
+                        selected: _selectedIndex == i,
+                        onSelected: (_) => _selectPlace(i),
+                        selectedColor: kPurple,
+                        labelStyle: TextStyle(
+                          color: _selectedIndex == i ? Colors.white : kPurple,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Namn och kategori
+                  Text(
+                    place['displayName']['text'],
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Rating
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: kYellow, size: 18),
+                      const SizedBox(width: 4),
+                      Text('${place['rating']}',
+                        style: const TextStyle(fontWeight: FontWeight.w500)),
+                      const SizedBox(width: 4),
+                      Text('(${place['userRatingCount']} recensioner)',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // Adress
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.location_on_outlined, color: kPurple, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(place['formattedAddress'],
+                        style: const TextStyle(fontSize: 14))),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Knappar
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => launchUrl(Uri.parse(
+                            'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng')),
+                          icon: const Icon(Icons.directions),
+                          label: const Text('Vägbeskrivning'),
+                          style: FilledButton.styleFrom(backgroundColor: kPurple),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(
+                          'https://www.google.com/maps/search/?api=1&query=$lat,$lng')),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: const Text('Maps'),
+                        style: OutlinedButton.styleFrom(foregroundColor: kPurple),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+  ),
+],
         ],
       ),
     );
