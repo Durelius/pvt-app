@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'splash.dart' show kPurple, MittenLogo;
+import 'package:flutter/foundation.dart';
+import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -28,7 +30,9 @@ class LoginScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 52),
-              _GoogleSignInButton(onPressed: () => _signInWithGoogle(context)),
+              kIsWeb 
+                ? (GoogleSignInPlatform.instance as dynamic).renderButton()
+                : _GoogleSignInButton(onPressed: () => _signInWithGoogle(context)),
               const SizedBox(height: 12),
               _GuestButton(onPressed: () => _continueAsGuest(context)),
             ],
@@ -41,13 +45,17 @@ class LoginScreen extends StatelessWidget {
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
       final googleSignIn = GoogleSignIn(
-        clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
+        //clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
       );
       final user = await googleSignIn.signIn();
       if (user != null && context.mounted) {
+        final auth = await user.authentication;
+        final String? idToken = auth.idToken;
+        print("Login successful! Here is your token: $idToken");
         _goToMain(context);
       }
-    } catch (_) {
+    } catch (e) {
+      print("GOOGLE SIGN-IN FAILED. Error: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Sign-in failed. Please try again.')),

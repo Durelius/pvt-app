@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "648166383994",
+    "project_id": "mitten2026-ba1c5",
+    "storage_bucket": "mitten2026-ba1c5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648166383994:android:91151768b40fe8787376c3",
+        "android_client_info": {
+          "package_name": "com.example.mitten"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "648166383994-60injkuta3jv8thamge46fevoq4kjd3v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mitten",
+            "certificate_hash": "7ead7a5a5df299ebbbf77e2ed07042641cacba09"
+          }
+        },
+        {
+          "client_id": "648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMVNAyNybErwIwiCOvRP7RqnXTZNGFa2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
