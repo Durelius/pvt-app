@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'group.dart';
 
 const Color kPurple = Color(0xFF63519F);
-const Color kBackGroundWhite = Color(0xFFF5F5F5);
+const Color kBackGroundWhite = Color(0xFFF4EFF6);
 const Color kBrightPurple = Color(0xFFEADDFF);
 
 
@@ -45,7 +46,7 @@ class _SavedPageState extends State<SavedPage> {
   
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 35, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 48, 16, 48),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -54,8 +55,8 @@ class _SavedPageState extends State<SavedPage> {
               "Saved",
               style: TextStyle(
                 color: kPurple,
-                fontSize: 26,
-                fontWeight: FontWeight.w600,
+                fontSize: 32,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -64,7 +65,7 @@ class _SavedPageState extends State<SavedPage> {
             child: Icon(
               Icons.bookmark_rounded,
               color: kPurple,
-              size: 32,
+              size: 48,
             ),
           ),
         ],
@@ -81,15 +82,15 @@ class _SavedPageState extends State<SavedPage> {
           child: Text(
             "My Groups",
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
+              fontSize: 30,
+              fontWeight: FontWeight.w400,
               color: kPurple,
             ),
           ),
         ),
 
         SizedBox(
-          height: 160,
+          height: 200,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(16),
@@ -109,39 +110,43 @@ class _SavedPageState extends State<SavedPage> {
   }
 
   Widget _buildGroupCard(FakeGroup group) {
-  return GestureDetector(
-    onTap: () {},
-    child: AspectRatio(
-      aspectRatio: 1,
-      child: Container(
-        decoration: BoxDecoration(
-          color: kPurple,
-          borderRadius: BorderRadius.circular(30),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              group.icon,
-              color: kBrightPurple,
-              size: 36,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              group.name,
-              style: const TextStyle(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GroupPage(group: group)
+          ,) 
+        );
+      },
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          decoration: BoxDecoration(
+            color: kPurple,
+            borderRadius: BorderRadius.circular(55),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                group.icon,
                 color: kBrightPurple,
-                fontSize: 14,
+                size: 48,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                group.name,
+                style: const TextStyle(
+                  color: kBrightPurple,
+                  fontSize: 18,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
-      ),
-    )
-  );
-}
-
-
-
+      )
+    );
+  }
 }
