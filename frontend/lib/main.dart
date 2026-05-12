@@ -10,6 +10,7 @@ import 'models/address_group.dart';
 import 'pages/home.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
+import 'pages/saved.dart';
 
 final FlutterLocalNotificationsPlugin notifications =
     FlutterLocalNotificationsPlugin();
@@ -98,7 +99,7 @@ class _MainShellState extends State<MainShell> {
     final pages = [
       const HomePage(),
       PlanPage(currentLocation: _currentLocation),
-      const _SavedPage(),
+      const SavedPage(),
     ];
 
     return Scaffold(
@@ -192,23 +193,3 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _SavedPage extends StatelessWidget {
-  const _SavedPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
-      body: Center(
-        child: Text(
-          'Saved',
-          style: TextStyle(
-            color: kPurple,
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}
