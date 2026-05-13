@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
+import 'profile.dart';
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
 
@@ -64,71 +65,97 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Home"),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text("Home"),
+      actions: [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.menu),
 
-            onSelected: (value) {
-              if (value == 'settings') {
-                print("Go to settings");
-              }
-
-              if (value == 'darkmode') {
-                setState(() {
-                  isDarkMode = !isDarkMode;
-                });
-
-                print("Dark mode: $isDarkMode");
-              }
-            },
-
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings', style: TextStyle(color: Colors.black)),
-              ),
-
-              const PopupMenuDivider(),
-
-              PopupMenuItem(
-                value: 'darkmode',
-                child: StatefulBuilder(
-                  builder: (context, setStatePopup) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Dark mode",
-                          style: TextStyle(color: Colors.black),
-                        ),
-
-                        Switch(
-                          value: isDarkMode,
-                          activeColor: const Color(0xFF63519F),
-                          onChanged: (value) {
-                            setState(() {
-                              isDarkMode = value;
-                            });
-
-                            setStatePopup(() {});
-
-                            //print("Dark mode: $value");
-                          },
-                        ),
-                      ],
-                    );
-                  },
+          onSelected: (value) {
+            if (value == 'profile') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfilePage(),
                 ),
+              );
+            }
+
+            if (value == 'settings') {
+              //go to settings
+            }
+
+            if (value == 'darkmode') {
+              setState(() {
+                isDarkMode = !isDarkMode;
+                //gör något?
+              });
+            }
+          },
+
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'profile',
+              child: Row(
+                children: [
+                  Icon(Icons.person, color: Colors.black),
+                  SizedBox(width: 8),
+                  Text(
+                    'Profile',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+            const PopupMenuItem(
+              value: 'settings',
+              child: Row(
+                children: [
+                  Icon(Icons.settings, color: Colors.black),
+                  SizedBox(width: 8),
+                  Text(
+                    'Settings',
+                    style: TextStyle(color: Colors.black),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'darkmode',
+              child: StatefulBuilder(
+                builder: (context, setStatePopup) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Dark mode",
+                        style: TextStyle(color: Colors.black),
+                      ),
+
+                      Switch(
+                        value: isDarkMode,
+                        activeColor: const Color(0xFF63519F),
+                        onChanged: (value) {
+                          setState(() {
+                            isDarkMode = value;
+                          });
+
+                          setStatePopup(() {});
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
 
       body: Stack(
         children: [
