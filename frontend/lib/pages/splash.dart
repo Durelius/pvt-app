@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'login.dart';
 
 const Color kPurple = Color(0xFF63519F);
@@ -55,7 +56,7 @@ class MittenLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
+    return SvgPicture.asset(
       'assets/mitten.svg',
       width: size,
       height: size,

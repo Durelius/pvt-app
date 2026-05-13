@@ -159,7 +159,7 @@ class _PlanPageState extends State<PlanPage> {
                 // Sökfält för adress
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 16, 16, 16),
                   child: Row(
                     children: [
                       Expanded(
