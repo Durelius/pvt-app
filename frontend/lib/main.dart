@@ -153,9 +153,9 @@ class _PillNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _NavItem(icon: Icons.person_rounded, index: 0, currentIndex: currentIndex, onTap: onTap),
-          _NavItem(icon: Icons.add_circle_outline_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
-          _NavItem(icon: Icons.bookmark_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.person_rounded, index: 0, label: 'Home', currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.add_circle_outline_rounded, index: 1,label: 'Plan', currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.bookmark_rounded, index: 2, label: 'Saved', currentIndex: currentIndex, onTap: onTap),
         ],
       ),
     );
@@ -164,12 +164,14 @@ class _PillNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final String label;
   final int index;
   final int currentIndex;
   final ValueChanged<int> onTap;
 
   const _NavItem({
     required this.icon,
+    required this.label,
     required this.index,
     required this.currentIndex,
     required this.onTap,
@@ -182,11 +184,24 @@ class _NavItem extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Icon(
-          icon,
-          color: selected ? Colors.white : Colors.white38,
-          size: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.white : Colors.white38,
+              size: 24, // material design 3-storlek på ikonen.
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                color: selected ? Colors.white : Colors.white38,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400, //textstorlek i enlighet med m3-guidelines.
+              ),
+            ),
+          ],
         ),
       ),
     );
