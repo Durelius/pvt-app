@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart'; // for kIsWeb
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mitten/location_service/location_service.dart';
 
@@ -10,6 +13,7 @@ import 'models/address_group.dart';
 import 'pages/home.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
+import 'services/auth_provider.dart';
 
 final FlutterLocalNotificationsPlugin notifications =
     FlutterLocalNotificationsPlugin();
@@ -19,6 +23,12 @@ const Color kNavDark = Color(0xFF2D1F5E);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    // This calls the internal init() the error message is asking for
+    await googleSignIn.signInSilently(); 
+  }
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
