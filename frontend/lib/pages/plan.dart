@@ -278,6 +278,7 @@ if (_results.isNotEmpty) ...[
       children: [
         // Kartan tar upp hela ytan
         FlutterMap(
+          mapController: _mapController,
           options: MapOptions(
             initialCenter: LatLng(
               (_results[0]['location']['latitude'] as num).toDouble(),

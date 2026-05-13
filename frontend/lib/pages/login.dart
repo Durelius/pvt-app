@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'splash.dart' show kPurple, MittenLogo;
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -30,9 +29,7 @@ class LoginScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 52),
-              kIsWeb 
-                ? (GoogleSignInPlatform.instance as dynamic).renderButton()
-                : _GoogleSignInButton(onPressed: () => _signInWithGoogle(context)),
+              _GoogleSignInButton(onPressed: () => _signInWithGoogle(context)),
               const SizedBox(height: 12),
               _GuestButton(onPressed: () => _continueAsGuest(context)),
             ],
@@ -45,7 +42,9 @@ class LoginScreen extends StatelessWidget {
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
       final googleSignIn = GoogleSignIn(
-        //clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
+        clientId: kIsWeb
+            ? '648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com'
+            : null,
       );
       final user = await googleSignIn.signIn();
       if (user != null && context.mounted) {
