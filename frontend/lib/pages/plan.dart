@@ -8,12 +8,16 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:mitten/location_service/location_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../MapboxGeocodingService.dart';
 import '../config.dart';
 import 'home.dart';
 
 const Color kPurple = Color(0xFF63519F);
+
+//variables for local storage
+final Box _recentSearches = Hive.box('recentSearches');
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
@@ -29,7 +33,6 @@ class _PlanPageState extends State<PlanPage> {
   final FocusNode _focusNode = FocusNode();
   final MapboxGeocodingService _geocoding = MapboxGeocodingService();
 
-  // ─── NEW: controller so we can animate the map from the sheet ───────────
   final MapController _mapController = MapController();
 
   List<Address> _suggestions = [];
@@ -131,6 +134,9 @@ class _PlanPageState extends State<PlanPage> {
     } finally {
       setState(() => _isLoading = false);
     }
+    final encodedItems = encodeItems(_items);
+    _recentSearches.add(encodedItems);
+    print('saved  $_items');
   }
 
   @override
@@ -750,4 +756,25 @@ class _PlanPageState extends State<PlanPage> {
       ],
     );
   }
+  List<Map<String, dynamic>> encodeItems(List<Address> items) {
+    return items.map((a) => {
+      'name': a.name,
+      'lat': a.lat,
+      'lon': a.lon,
+    }).toList();
+  }
+
+  List<Address> decodeItems(List saved) {
+    return saved
+        .map((e) => Address(
+              name: e['name'],
+              lat: e['lat'],
+              lon: e['lon'],
+            ))
+        .toList();
+  }
+  
+}
+class RecentSearch {
+  List<Address> addresses = [];
 }

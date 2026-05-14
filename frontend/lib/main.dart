@@ -34,9 +34,12 @@ void main() async {
   ));
 
   await Hive.initFlutter();
+
   Hive.registerAdapter(AddressEntryAdapter());
   Hive.registerAdapter(AddressGroupAdapter());
+
   await Hive.openBox<AddressEntry>('addressEntries');
+  await Hive.openBox('recentSearches');
 
   await notifications.initialize(const InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
