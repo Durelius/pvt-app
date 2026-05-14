@@ -29,6 +29,9 @@ class _PlanPageState extends State<PlanPage> {
   final FocusNode _focusNode = FocusNode();
   final MapboxGeocodingService _geocoding = MapboxGeocodingService();
 
+  // ─── NEW: controller so we can animate the map from the sheet ───────────
+  final MapController _mapController = MapController();
+
   List<Address> _suggestions = [];
   String _searchTerm = "";
   final List<Address> _items = [];
@@ -381,7 +384,6 @@ class _PlanPageState extends State<PlanPage> {
   double? _lng(Map<String, dynamic> place) =>
       (place['location']?['longitude'] as num?)?.toDouble();
 
-  // Karta + DraggableScrollableSheet ovanpå
   Widget _buildResults() {
     final firstWithLocation = _results
         .cast<Map<String, dynamic>>()
@@ -394,8 +396,8 @@ class _PlanPageState extends State<PlanPage> {
 
     return Stack(
       children: [
-        // Karta i bakgrunden
         FlutterMap(
+          mapController: _mapController,
           options: MapOptions(
             initialCenter: LatLng(centerLat, centerLng),
             initialZoom: 13,
@@ -414,21 +416,24 @@ class _PlanPageState extends State<PlanPage> {
                         point: LatLng(_lat(place)!, _lng(place)!),
                         width: 120,
                         height: 60,
-                        child: Column(
-                          children: [
-                            const Icon(Icons.place,
-                                color: kPurple, size: 28),
-                            Container(
-                              color: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(
-                                place['displayName']['text'],
-                                style: const TextStyle(fontSize: 10),
-                                overflow: TextOverflow.ellipsis,
+                        child: GestureDetector(
+                          onTap: () => _showPlaceSheet(context, place),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.place,
+                                  color: kPurple, size: 28),
+                              Container(
+                                color: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4),
+                                child: Text(
+                                  place['displayName']['text'],
+                                  style: const TextStyle(fontSize: 10),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ))
                   .toList(),
@@ -436,7 +441,6 @@ class _PlanPageState extends State<PlanPage> {
           ],
         ),
 
-        // Sheet ovanpå
         DraggableScrollableSheet(
           initialChildSize: 0.55,
           minChildSize: 0.15,
@@ -444,96 +448,98 @@ class _PlanPageState extends State<PlanPage> {
           expand: true,
           builder: (context, scrollController) {
             return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black12)],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handtag
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [
+                  BoxShadow(blurRadius: 8, color: Colors.black12)
+                ],
               ),
-              // Rubrik + back-knapp (identisk med version 1)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Recommended places',
-                      style: TextStyle(
-                          color: kPurple,
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => setState(() => _results = []),
-                      child: Row(
-                        children: [
-                          Icon(Icons.arrow_back,
-                              color: kPurple.withValues(alpha: 0.5),
-                              size: 16),
-                          const SizedBox(width: 4),
-                          Text('Back',
-                              style: TextStyle(
-                                  color: kPurple.withValues(alpha: 0.5),
-                                  fontSize: 14)),
-                        ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              // Kortlistan (identisk med version 1)
-              Expanded(
-                child: Stack(
-                  children: [
-                    ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                      itemCount: _results.length,
-                      itemBuilder: (_, i) =>
-                          _buildPlaceCard(_results[i]),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Recommended places',
+                          style: TextStyle(
+                              color: kPurple,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => setState(() => _results = []),
+                          child: Row(
+                            children: [
+                              Icon(Icons.arrow_back,
+                                  color: kPurple.withValues(alpha: 0.5),
+                                  size: 16),
+                              const SizedBox(width: 4),
+                              Text('Back',
+                                  style: TextStyle(
+                                      color:
+                                          kPurple.withValues(alpha: 0.5),
+                                      fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: 72,
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.white.withValues(alpha: 0),
-                                Colors.white,
-                              ],
+                  ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        ListView.builder(
+                          controller: scrollController,
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          itemCount: _results.length,
+                          itemBuilder: (_, i) =>
+                              _buildPlaceCard(_results[i]),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 72,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0),
+                                    Colors.white,
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-    ),
+            );
+          },
+        ),
       ],
     );
   }
@@ -595,106 +601,153 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
+  // "View on map" moves camera; "Get directions" opens Maps 
   void _showPlaceSheet(BuildContext context, Map<String, dynamic> place) {
     final name = place['displayName']['text'] as String;
     final address = place['formattedAddress'] as String;
     final rating = (place['rating'] as num?)?.toDouble() ?? 0.0;
-    final lat = (place['location']?['latitude'] as num?)?.toDouble();
-    final lng = (place['location']?['longitude'] as num?)?.toDouble();
+    final lat = _lat(place);
+    final lng = _lng(place);
 
+    // Extra white space leftover for more information when nearby.go is updated 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(name,
-                style: const TextStyle(
-                    color: kPurple,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                ...List.generate(5, (i) {
-                  if (i < rating.floor()) {
-                    return const Icon(Icons.star_rounded,
-                        color: Colors.amber, size: 20);
-                  } else if (i < rating) {
-                    return const Icon(Icons.star_half_rounded,
-                        color: Colors.amber, size: 20);
-                  } else {
-                    return const Icon(Icons.star_outline_rounded,
-                        color: Colors.amber, size: 20);
-                  }
-                }),
-                const SizedBox(width: 8),
-                Text(rating.toStringAsFixed(1),
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.location_on_outlined,
-                    color: kPurple, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(address,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black87,
-                          height: 1.5)),
-                ),
-              ],
-            ),
-            if (lat != null && lng != null) ...[
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    final uri = Uri.parse(
-                        'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                    launchUrl(uri, mode: LaunchMode.externalApplication);
-                  },
-                  icon: const Icon(Icons.map_outlined, size: 18),
-                  label: const Text('Open in Maps'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
-                    elevation: 0,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Name
+              Text(name,
+                  style: const TextStyle(
+                      color: kPurple,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+
+              // Rating
+              Row(
+                children: [
+                  ...List.generate(5, (i) {
+                    if (i < rating.floor()) {
+                      return const Icon(Icons.star_rounded,
+                          color: Colors.amber, size: 20);
+                    } else if (i < rating) {
+                      return const Icon(Icons.star_half_rounded,
+                          color: Colors.amber, size: 20);
+                    } else {
+                      return const Icon(Icons.star_outline_rounded,
+                          color: Colors.amber, size: 20);
+                    }
+                  }),
+                  const SizedBox(width: 8),
+                  Text(rating.toStringAsFixed(1),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Address
+              _infoRow(Icons.location_on_outlined, address),
+              
+              if (lat != null && lng != null) ...[
+                const SizedBox(height: 24),
+
+                // View on map (moves camera, closes sheet)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _mapController.move(LatLng(lat, lng), 15);
+                    },
+                    icon: const Icon(Icons.map_outlined,
+                        size: 18, color: kPurple),
+                    label: const Text('View on map',
+                        style: TextStyle(color: kPurple)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: kPurple),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Get directions (opens Google Maps)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      final uri = Uri.parse(
+                          'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+                      launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    },
+                    icon: const Icon(Icons.directions_outlined,
+                        size: 18),
+                    label: const Text('Get directions'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  // Helpers 
+  Widget _infoRow(IconData icon, String text, {Color? color}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color ?? Colors.grey.shade500, size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+                fontSize: 14,
+                color: color ?? Colors.black87,
+                height: 1.5),
+          ),
+        ),
+      ],
     );
   }
 }
