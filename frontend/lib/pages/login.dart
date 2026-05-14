@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'splash.dart' show kPurple, MittenLogo;
-import 'package:flutter/foundation.dart';
+
+//Imports for google sign in and location services
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
+import 'package:mitten/services/auth_provider.dart';
+import 'package:flutter/foundation.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -11,7 +14,19 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
+
+      body: StreamBuilder<GoogleSignInAccount?>(
+      // We listen to the global instance we set up in auth_provider.dart
+      stream: googleSignIn.onCurrentUserChanged,
+      builder: (context, snapshot) {
+        // As soon as the stream emits a user (from the web button click)
+        if (snapshot.hasData && snapshot.data != null) {
+          // Use addPostFrameCallback to avoid "Building while navigating" errors
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _goToMain(context);
+          });
+        }
+        return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Column(
@@ -38,15 +53,14 @@ class LoginScreen extends StatelessWidget {
             ],
           ),
         ),
+        );
+      },
       ),
     );
   }
 
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
-      final googleSignIn = GoogleSignIn(
-        //clientId: '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com',
-      );
       final user = await googleSignIn.signIn();
       if (user != null && context.mounted) {
         final auth = await user.authentication;

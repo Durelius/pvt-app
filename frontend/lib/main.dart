@@ -11,6 +11,10 @@ import 'pages/home.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
 
+//Imports for google sign in and location services
+import 'package:flutter/foundation.dart';
+import 'services/auth_provider.dart';
+
 final FlutterLocalNotificationsPlugin notifications =
     FlutterLocalNotificationsPlugin();
 
@@ -19,6 +23,11 @@ const Color kNavDark = Color(0xFF2D1F5E);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    await googleSignIn.signInSilently(); 
+  }
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.dark,
