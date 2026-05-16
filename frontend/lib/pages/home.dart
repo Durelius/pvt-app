@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
 
+
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
 
 class HomePage extends StatefulWidget {
@@ -74,55 +75,42 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.menu),
 
             onSelected: (value) {
-              if (value == 'settings') {
-                print("Go to settings");
+              if (value == 'profile') {
+                //go to profile
               }
 
-              if (value == 'darkmode') {
-                setState(() {
-                  isDarkMode = !isDarkMode;
-                });
+              if (value == 'settings') {
+                //go to settings
+              }
 
-                print("Dark mode: $isDarkMode");
+              if (value == 'friends') {
+                //go to friends
               }
             },
 
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings', style: TextStyle(color: Colors.black)),
+                value: 'profile',
+                child: Text(
+                  'Profile',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
 
-              const PopupMenuDivider(),
 
-              PopupMenuItem(
-                value: 'darkmode',
-                child: StatefulBuilder(
-                  builder: (context, setStatePopup) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Dark mode",
-                          style: TextStyle(color: Colors.black),
-                        ),
+              const PopupMenuItem(
+                value: 'settings',
+                child: Text(
+                  'Settings',
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
 
-                        Switch(
-                          value: isDarkMode,
-                          activeColor: const Color(0xFF63519F),
-                          onChanged: (value) {
-                            setState(() {
-                              isDarkMode = value;
-                            });
-
-                            setStatePopup(() {});
-
-                            //print("Dark mode: $value");
-                          },
-                        ),
-                      ],
-                    );
-                  },
+              const PopupMenuItem(
+                value: 'friends',
+                child: Text(
+                  'Friends',
+                  style: TextStyle(color: Colors.black),
                 ),
               ),
             ],
