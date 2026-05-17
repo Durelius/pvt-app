@@ -32,8 +32,11 @@ class _PlanPageState extends State<PlanPage> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final MapboxGeocodingService _geocoding = MapboxGeocodingService();
-
   final MapController _mapController = MapController();
+
+  bool _hasCurrentLocation = false;
+  bool _hasMyAddress = false;
+  String _homeAddressName = 'Saved home address';
 
   List<Address> _suggestions = [];
   String _searchTerm = "";
@@ -45,11 +48,12 @@ class _PlanPageState extends State<PlanPage> {
   @override
   void initState() {
     super.initState();
-    final lat = widget.currentLocation?.latitude ?? 0;
+    /*final lat = widget.currentLocation?.latitude ?? 0;
     final lng = widget.currentLocation?.longitude ?? 0;
     if (lat == 0 || lng == 0) return;
     WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _resolveCurrentAddress(lat, lng));
+      (_) => _resolveCurrentAddress(lat, lng),
+    );*/
   }
 
   @override
@@ -64,9 +68,11 @@ class _PlanPageState extends State<PlanPage> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty) return;
       final p = placemarks.first;
-      final label = [p.street, p.locality, p.country]
-          .where((s) => s != null && s.isNotEmpty)
-          .join(', ');
+      final label = [
+        p.street,
+        p.locality,
+        p.country,
+      ].where((s) => s != null && s.isNotEmpty).join(', ');
       setState(() => _items.add(Address(name: label, lat: lat, lon: lng)));
     } catch (_) {}
   }
@@ -107,10 +113,7 @@ class _PlanPageState extends State<PlanPage> {
         _items.map((a) => {'lat': a.lat, 'lon': a.lon}).toList(),
       );
       final uri = Uri.parse('$apiBase/middle/v1/middleplaces').replace(
-        queryParameters: {
-          'points': pointsJson,
-          'location_type': 'restaurant',
-        },
+        queryParameters: {'points': pointsJson, 'location_type': 'restaurant'},
       );
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -119,8 +122,8 @@ class _PlanPageState extends State<PlanPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text(
-                    'Could not find results (${response.statusCode})')),
+              content: Text('Could not find results (${response.statusCode})'),
+            ),
           );
         }
       }
@@ -128,7 +131,8 @@ class _PlanPageState extends State<PlanPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Network error — is the server running?')),
+            content: Text('Network error — is the server running?'),
+          ),
         );
       }
     } finally {
@@ -156,8 +160,8 @@ class _PlanPageState extends State<PlanPage> {
                 child: _isLoading
                     ? _buildLoading()
                     : _results.isNotEmpty
-                        ? _buildResults()
-                        : _buildAddressList(),
+                    ? _buildResults()
+                    : _buildAddressList(),
               ),
             ),
           ],
@@ -188,8 +192,11 @@ class _PlanPageState extends State<PlanPage> {
                       _suggestions = [];
                       _focusNode.unfocus();
                     }),
-                    child: const Icon(Icons.arrow_back,
-                        color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -201,12 +208,12 @@ class _PlanPageState extends State<PlanPage> {
                     decoration: InputDecoration(
                       hintText: 'Add an address...',
                       hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 15),
+                        color: Colors.white.withValues(alpha: 0.65),
+                        fontSize: 15,
+                      ),
                       border: InputBorder.none,
                       isDense: true,
-                      contentPadding:
-                          const EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     onChanged: _onTextChanged,
                   ),
@@ -214,10 +221,10 @@ class _PlanPageState extends State<PlanPage> {
                 GestureDetector(
                   onTap: hasText
                       ? () => setState(() {
-                            _controller.clear();
-                            _searchTerm = '';
-                            _suggestions = [];
-                          })
+                          _controller.clear();
+                          _searchTerm = '';
+                          _suggestions = [];
+                        })
                       : null,
                   child: Icon(
                     hasText ? Icons.close : Icons.mic,
@@ -247,28 +254,37 @@ class _PlanPageState extends State<PlanPage> {
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _suggestions.length,
                 separatorBuilder: (context, index) => Divider(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.15),
-                    indent: 52),
+                  height: 1,
+                  color: Colors.white.withValues(alpha: 0.15),
+                  indent: 52,
+                ),
                 itemBuilder: (context, i) {
                   final parts = _suggestions[i].name.split(',');
                   final street = parts.first.trim();
                   final rest = parts.skip(1).join(',').trim();
                   return ListTile(
                     dense: true,
-                    leading: const Icon(Icons.location_on,
-                        color: Colors.white70, size: 22),
-                    title: Text(street,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Colors.white)),
+                    leading: const Icon(
+                      Icons.location_on,
+                      color: Colors.white70,
+                      size: 22,
+                    ),
+                    title: Text(
+                      street,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
                     subtitle: rest.isNotEmpty
-                        ? Text(rest,
+                        ? Text(
+                            rest,
                             style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    Colors.white.withValues(alpha: 0.65)))
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.65),
+                            ),
+                          )
                         : null,
                     trailing: Container(
                       width: 28,
@@ -277,14 +293,84 @@ class _PlanPageState extends State<PlanPage> {
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.add,
-                          color: Colors.white, size: 17),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 17,
+                      ),
                     ),
                     onTap: () => _selectSuggestion(_suggestions[i]),
                   );
                 },
               ),
             ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _hasCurrentLocation
+                      ? null
+                      : () {
+                          final lat = widget.currentLocation?.latitude;
+                          final lng = widget.currentLocation?.longitude;
+                          if (lat != null && lng != null) {
+                            setState(() => _hasCurrentLocation = true);
+                            _resolveCurrentAddress(lat, lng);
+                          }
+                        },
+                  icon: const Icon(Icons.my_location, size: 16, color: kPurple),
+                  label: const Text(
+                    'Current location',
+                    style: TextStyle(color: kPurple, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kPurple),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _hasMyAddress
+                      ? null
+                      : () {
+                          // TODO: hämta sparad hemadress och lägg till
+                          setState(() {
+                            _hasMyAddress = true;
+                            _items.add(
+                              Address(
+                                name: _homeAddressName,
+                                lat: 59.33258,
+                                lon: 18.0649,
+                              ),
+                            );
+                          });
+                        },
+                  icon: const Icon(
+                    Icons.home_outlined,
+                    size: 16,
+                    color: kPurple,
+                  ),
+                  label: const Text(
+                    'My address',
+                    style: TextStyle(color: kPurple, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kPurple),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
         ],
       ),
@@ -301,9 +387,10 @@ class _PlanPageState extends State<PlanPage> {
                     'Add at least two addresses\nto find a meeting point',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: kPurple.withValues(alpha: 0.45),
-                        fontSize: 15,
-                        height: 1.6),
+                      color: kPurple.withValues(alpha: 0.45),
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -313,28 +400,50 @@ class _PlanPageState extends State<PlanPage> {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 2),
+                        horizontal: 14,
+                        vertical: 2,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                            color: kPurple.withValues(alpha: 0.15)),
+                          color: kPurple.withValues(alpha: 0.15),
+                        ),
                       ),
                       tileColor: kPurple.withValues(alpha: 0.06),
-                      leading: const Icon(Icons.location_on,
-                          color: kPurple, size: 20),
+                      leading: const Icon(
+                        Icons.location_on,
+                        color: kPurple,
+                        size: 20,
+                      ),
                       title: Text(
                         _items[i].name,
                         style: const TextStyle(
-                            color: Colors.black87,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500),
+                          color: Colors.black87,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       trailing: GestureDetector(
-                        onTap: () =>
-                            setState(() => _items.removeAt(i)),
-                        child: Icon(Icons.remove_circle_outline,
-                            color: kPurple.withValues(alpha: 0.4),
-                            size: 20),
+                        onTap: () => setState(
+                          (){
+                            final removed = _items[i];
+                            if (removed.name == _homeAddressName) {
+                              _hasMyAddress = false;
+                            }
+                            final lat = widget.currentLocation?.latitude;
+                            final lng = widget.currentLocation?.longitude;
+                            if(removed.lat == lat && removed.lon == lng) {
+                              _hasCurrentLocation = false;
+                            }
+                            _items.removeAt(i);
+                          },
+                        ),
+
+                        child: Icon(
+                          Icons.remove_circle_outline,
+                          color: kPurple.withValues(alpha: 0.4),
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -347,20 +456,25 @@ class _PlanPageState extends State<PlanPage> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _findMiddle,
-                icon: const Icon(Icons.explore_outlined,
-                    color: Colors.white, size: 20),
+                icon: const Icon(
+                  Icons.explore_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 label: const Text(
                   'Find middle',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPurple,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30)),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
                   elevation: 0,
                 ),
               ),
@@ -377,9 +491,13 @@ class _PlanPageState extends State<PlanPage> {
         children: [
           const CircularProgressIndicator(color: kPurple, strokeWidth: 2.5),
           const SizedBox(height: 18),
-          Text('Calculating...',
-              style: TextStyle(
-                  color: kPurple.withValues(alpha: 0.7), fontSize: 16)),
+          Text(
+            'Calculating...',
+            style: TextStyle(
+              color: kPurple.withValues(alpha: 0.7),
+              fontSize: 16,
+            ),
+          ),
         ],
       ),
     );
@@ -391,12 +509,10 @@ class _PlanPageState extends State<PlanPage> {
       (place['location']?['longitude'] as num?)?.toDouble();
 
   Widget _buildResults() {
-    final firstWithLocation = _results
-        .cast<Map<String, dynamic>>()
-        .firstWhere(
-          (p) => _lat(p) != null && _lng(p) != null,
-          orElse: () => {},
-        );
+    final firstWithLocation = _results.cast<Map<String, dynamic>>().firstWhere(
+      (p) => _lat(p) != null && _lng(p) != null,
+      orElse: () => {},
+    );
     final centerLat = _lat(firstWithLocation) ?? 59.3293;
     final centerLng = _lng(firstWithLocation) ?? 18.0686;
 
@@ -418,30 +534,32 @@ class _PlanPageState extends State<PlanPage> {
               markers: _results
                   .cast<Map<String, dynamic>>()
                   .where((p) => _lat(p) != null && _lng(p) != null)
-                  .map((place) => Marker(
-                        point: LatLng(_lat(place)!, _lng(place)!),
-                        width: 120,
-                        height: 60,
-                        child: GestureDetector(
-                          onTap: () => _showPlaceSheet(context, place),
-                          child: Column(
-                            children: [
-                              const Icon(Icons.place,
-                                  color: kPurple, size: 28),
-                              Container(
-                                color: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4),
-                                child: Text(
-                                  place['displayName']['text'],
-                                  style: const TextStyle(fontSize: 10),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                  .map(
+                    (place) => Marker(
+                      point: LatLng(_lat(place)!, _lng(place)!),
+                      width: 120,
+                      height: 60,
+                      child: GestureDetector(
+                        onTap: () => _showPlaceSheet(context, place),
+                        child: Column(
+                          children: [
+                            const Icon(Icons.place, color: kPurple, size: 28),
+                            Container(
+                              color: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
                               ),
-                            ],
-                          ),
+                              child: Text(
+                                place['displayName']['text'],
+                                style: const TextStyle(fontSize: 10),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ))
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -456,11 +574,8 @@ class _PlanPageState extends State<PlanPage> {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(blurRadius: 8, color: Colors.black12)
-                ],
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black12)],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,24 +598,29 @@ class _PlanPageState extends State<PlanPage> {
                         const Text(
                           'Recommended places',
                           style: TextStyle(
-                              color: kPurple,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold),
+                            color: kPurple,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const Spacer(),
                         GestureDetector(
                           onTap: () => setState(() => _results = []),
                           child: Row(
                             children: [
-                              Icon(Icons.arrow_back,
-                                  color: kPurple.withValues(alpha: 0.5),
-                                  size: 16),
+                              Icon(
+                                Icons.arrow_back,
+                                color: kPurple.withValues(alpha: 0.5),
+                                size: 16,
+                              ),
                               const SizedBox(width: 4),
-                              Text('Back',
-                                  style: TextStyle(
-                                      color:
-                                          kPurple.withValues(alpha: 0.5),
-                                      fontSize: 14)),
+                              Text(
+                                'Back',
+                                style: TextStyle(
+                                  color: kPurple.withValues(alpha: 0.5),
+                                  fontSize: 14,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -512,11 +632,9 @@ class _PlanPageState extends State<PlanPage> {
                       children: [
                         ListView.builder(
                           controller: scrollController,
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           itemCount: _results.length,
-                          itemBuilder: (_, i) =>
-                              _buildPlaceCard(_results[i]),
+                          itemBuilder: (_, i) => _buildPlaceCard(_results[i]),
                         ),
                         Positioned(
                           left: 0,
@@ -568,35 +686,44 @@ class _PlanPageState extends State<PlanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16)),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.star_rounded,
-                      color: Colors.amber, size: 16),
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
                   const SizedBox(width: 4),
-                  Text(rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 13)),
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.location_on,
-                      color: Colors.white54, size: 14),
+                  const Icon(
+                    Icons.location_on,
+                    color: Colors.white54,
+                    size: 14,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(address,
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            height: 1.4)),
+                    child: Text(
+                      address,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -607,7 +734,7 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
-  // "View on map" moves camera; "Get directions" opens Maps 
+  // "View on map" moves camera; "Get directions" opens Maps
   void _showPlaceSheet(BuildContext context, Map<String, dynamic> place) {
     final name = place['displayName']['text'] as String;
     final address = place['formattedAddress'] as String;
@@ -615,7 +742,7 @@ class _PlanPageState extends State<PlanPage> {
     final lat = _lat(place);
     final lng = _lng(place);
 
-    // Extra white space leftover for more information when nearby.go is updated 
+    // Extra white space leftover for more information when nearby.go is updated
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -648,11 +775,14 @@ class _PlanPageState extends State<PlanPage> {
               const SizedBox(height: 16),
 
               // Name
-              Text(name,
-                  style: const TextStyle(
-                      color: kPurple,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: kPurple,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 12),
 
               // Rating
@@ -660,19 +790,32 @@ class _PlanPageState extends State<PlanPage> {
                 children: [
                   ...List.generate(5, (i) {
                     if (i < rating.floor()) {
-                      return const Icon(Icons.star_rounded,
-                          color: Colors.amber, size: 20);
+                      return const Icon(
+                        Icons.star_rounded,
+                        color: Colors.amber,
+                        size: 20,
+                      );
                     } else if (i < rating) {
-                      return const Icon(Icons.star_half_rounded,
-                          color: Colors.amber, size: 20);
+                      return const Icon(
+                        Icons.star_half_rounded,
+                        color: Colors.amber,
+                        size: 20,
+                      );
                     } else {
-                      return const Icon(Icons.star_outline_rounded,
-                          color: Colors.amber, size: 20);
+                      return const Icon(
+                        Icons.star_outline_rounded,
+                        color: Colors.amber,
+                        size: 20,
+                      );
                     }
                   }),
                   const SizedBox(width: 8),
-                  Text(rating.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -680,7 +823,7 @@ class _PlanPageState extends State<PlanPage> {
 
               // Address
               _infoRow(Icons.location_on_outlined, address),
-              
+
               if (lat != null && lng != null) ...[
                 const SizedBox(height: 24),
 
@@ -692,15 +835,21 @@ class _PlanPageState extends State<PlanPage> {
                       Navigator.pop(context);
                       _mapController.move(LatLng(lat, lng), 15);
                     },
-                    icon: const Icon(Icons.map_outlined,
-                        size: 18, color: kPurple),
-                    label: const Text('View on map',
-                        style: TextStyle(color: kPurple)),
+                    icon: const Icon(
+                      Icons.map_outlined,
+                      size: 18,
+                      color: kPurple,
+                    ),
+                    label: const Text(
+                      'View on map',
+                      style: TextStyle(color: kPurple),
+                    ),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: kPurple),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
                   ),
                 ),
@@ -712,19 +861,19 @@ class _PlanPageState extends State<PlanPage> {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       final uri = Uri.parse(
-                          'https://www.google.com/maps/search/?api=1&query=$lat,$lng');
-                      launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
+                        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+                      );
+                      launchUrl(uri, mode: LaunchMode.externalApplication);
                     },
-                    icon: const Icon(Icons.directions_outlined,
-                        size: 18),
+                    icon: const Icon(Icons.directions_outlined, size: 18),
                     label: const Text('Get directions'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPurple,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                       elevation: 0,
                     ),
                   ),
@@ -737,7 +886,7 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
-  // Helpers 
+  // Helpers
   Widget _infoRow(IconData icon, String text, {Color? color}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -748,33 +897,29 @@ class _PlanPageState extends State<PlanPage> {
           child: Text(
             text,
             style: TextStyle(
-                fontSize: 14,
-                color: color ?? Colors.black87,
-                height: 1.5),
+              fontSize: 14,
+              color: color ?? Colors.black87,
+              height: 1.5,
+            ),
           ),
         ),
       ],
     );
   }
+
   List<Map<String, dynamic>> encodeItems(List<Address> items) {
-    return items.map((a) => {
-      'name': a.name,
-      'lat': a.lat,
-      'lon': a.lon,
-    }).toList();
+    return items
+        .map((a) => {'name': a.name, 'lat': a.lat, 'lon': a.lon})
+        .toList();
   }
 
   List<Address> decodeItems(List saved) {
     return saved
-        .map((e) => Address(
-              name: e['name'],
-              lat: e['lat'],
-              lon: e['lon'],
-            ))
+        .map((e) => Address(name: e['name'], lat: e['lat'], lon: e['lon']))
         .toList();
   }
-  
 }
+
 class RecentSearch {
   List<Address> addresses = [];
 }
