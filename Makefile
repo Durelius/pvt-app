@@ -16,10 +16,10 @@ build: generate
 	docker compose up --build
 
 flutter:
-	cd frontend && dart run flutter_native_splash:create && flutter pub get && flutter run
+	cd frontend && flutter pub run flutter_native_splash:create && flutter pub get && flutter run
 
 flutter-dev:
-	cd frontend && dart run flutter_native_splash:create && flutter pub get && flutter run --dart-define=DEV=true
+	cd frontend && flutter pub run flutter_native_splash:create && flutter pub get && flutter run --dart-define=DEV=true
 
 ios:
 	cd frontend && flutter emulators --launch apple_ios_simulator
