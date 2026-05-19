@@ -166,7 +166,7 @@ class _HomePageState extends State<HomePage> {
                     Icon(Icons.settings, color: Colors.black),
                     SizedBox(width: 10),
                     Text(
-                      'Settings',
+                      'Settings(Profile for now)',
                       style: TextStyle(color: Colors.black),
                     ),
                   ],
