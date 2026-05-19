@@ -4,12 +4,15 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mitten/location_service/location_service.dart';
+import '../MapboxGeocodingService.dart';
 
 import 'models/address_entry.dart';
 import 'models/address_group.dart';
+
 import 'pages/home.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
+import 'pages/saved.dart';
 
 //Imports for google sign in and location services
 import 'package:flutter/foundation.dart';
@@ -40,6 +43,7 @@ void main() async {
 
   await Hive.openBox<AddressEntry>('addressEntries');
   await Hive.openBox('recentSearches');
+  await Hive.openBox('savedGroups');
 
   await notifications.initialize(const InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -88,6 +92,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   AppLocation? _currentLocation;
+  List<Address>? _prefilledAddresses;
   final LocationService _locationService = LocationService();
 
   @override
@@ -105,12 +110,21 @@ class _MainShellState extends State<MainShell> {
     if (mounted) setState(() => _currentLocation = loc);
   }
 
+  void _openPlanWithAddresses(List<Address> addresses) {
+    setState(() {
+      _prefilledAddresses = addresses;
+      _currentIndex = 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = [
       const HomePage(),
-      PlanPage(currentLocation: _currentLocation),
-      const _SavedPage(),
+      PlanPage(currentLocation: _currentLocation,
+        prefilledAddresses: _prefilledAddresses,
+      ),
+      SavedPage(onOpenPlan: _openPlanWithAddresses),
     ];
 
     return Scaffold(
@@ -204,23 +218,3 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _SavedPage extends StatelessWidget {
-  const _SavedPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF5F5F5),
-      body: Center(
-        child: Text(
-          'Saved',
-          style: TextStyle(
-            color: kPurple,
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}

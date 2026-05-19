@@ -16,12 +16,13 @@ import 'home.dart';
 
 const Color kPurple = Color(0xFF63519F);
 
-//variables for local storage
-final Box _recentSearches = Hive.box('recentSearches');
+final Box recentSearches = Hive.box('recentSearches');
 
 class PlanPage extends StatefulWidget {
+
   final AppLocation? currentLocation;
-  const PlanPage({super.key, this.currentLocation});
+  final List<Address>? prefilledAddresses;
+  const PlanPage({super.key, this.currentLocation, this.prefilledAddresses});
 
   @override
   State<PlanPage> createState() => _PlanPageState();
@@ -45,6 +46,11 @@ class _PlanPageState extends State<PlanPage> {
   @override
   void initState() {
     super.initState();
+
+    if (widget.prefilledAddresses != null) {
+      _items.addAll(widget.prefilledAddresses!);
+    }
+
     final lat = widget.currentLocation?.latitude ?? 0;
     final lng = widget.currentLocation?.longitude ?? 0;
     if (lat == 0 || lng == 0) return;
@@ -134,9 +140,13 @@ class _PlanPageState extends State<PlanPage> {
     } finally {
       setState(() => _isLoading = false);
     }
-    final encodedItems = encodeItems(_items);
-    _recentSearches.add(encodedItems);
-    print('saved  $_items');
+    if (widget.prefilledAddresses == null) {
+      final encodedItems = encodeItems(_items);
+      recentSearches.add({
+        'name': '',  
+        'addresses': encodedItems,
+      });
+    }
   }
 
   @override
@@ -756,25 +766,26 @@ class _PlanPageState extends State<PlanPage> {
       ],
     );
   }
-  List<Map<String, dynamic>> encodeItems(List<Address> items) {
-    return items.map((a) => {
-      'name': a.name,
-      'lat': a.lat,
-      'lon': a.lon,
-    }).toList();
-  }
-
-  List<Address> decodeItems(List saved) {
-    return saved
-        .map((e) => Address(
-              name: e['name'],
-              lat: e['lat'],
-              lon: e['lon'],
-            ))
-        .toList();
-  }
   
 }
 class RecentSearch {
   List<Address> addresses = [];
+}
+
+List<Map<String, dynamic>> encodeItems(List<Address> items) {
+  return items.map((a) => {
+    'name': a.name,
+    'lat': a.lat,
+    'lon': a.lon,
+  }).toList();
+}
+
+List<Address> decodeItems(List saved) {
+  return saved
+      .map((e) => Address(
+            name: e['name'],
+            lat: e['lat'],
+            lon: e['lon'],
+          ))
+      .toList();
 }
