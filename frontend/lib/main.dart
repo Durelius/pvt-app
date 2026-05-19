@@ -44,6 +44,7 @@ void main() async {
   await Hive.openBox<AddressEntry>('addressEntries');
   await Hive.openBox('recentSearches');
   await Hive.openBox('savedGroups');
+  await Hive.openBox('homeAddress');
 
   await notifications.initialize(const InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
