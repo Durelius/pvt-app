@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
 
             onSelected: (value) {
               void goToLogin() {
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const LoginScreen(),
