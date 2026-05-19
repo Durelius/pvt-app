@@ -4,6 +4,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
+import 'package:mitten/services/auth_provider.dart';
+import 'login.dart';
+import 'profile.dart';
 
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
@@ -75,16 +78,53 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.menu),
 
             onSelected: (value) {
-              if (value == 'profile') {
-                //go to profile
+              void goToLogin() {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
               }
 
-              if (value == 'settings') {
-                //go to settings
+              final user = googleSignIn.currentUser;
+              final bool isLoggedIn = user != null;
+
+              if (value == 'profile') {
+                if (!isLoggedIn) {
+                  goToLogin();
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
               }
 
               if (value == 'friends') {
-                //go to friends
+                if (!isLoggedIn) {
+                  goToLogin();
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
+              }
+
+              if (value == 'settings') {
+               Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
               }
             },
 
@@ -99,17 +139,17 @@ class _HomePageState extends State<HomePage> {
 
 
               const PopupMenuItem(
-                value: 'settings',
+                value: 'friends',
                 child: Text(
-                  'Settings',
+                  'Friends',
                   style: TextStyle(color: Colors.black),
                 ),
               ),
 
               const PopupMenuItem(
-                value: 'friends',
+                value: 'settings',
                 child: Text(
-                  'Friends',
+                  'Settings(profile)',
                   style: TextStyle(color: Colors.black),
                 ),
               ),
