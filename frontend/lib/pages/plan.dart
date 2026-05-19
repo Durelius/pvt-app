@@ -144,12 +144,15 @@ class _PlanPageState extends State<PlanPage> {
     } finally {
       setState(() => _isLoading = false);
     }
-    if (widget.prefilledAddresses == null) {
-      final encodedItems = encodeItems(_items);
-      recentSearches.add({
-        'name': '',  
-        'addresses': encodedItems,
-      });
+    final encodedItems = encodeItems(_items);
+    recentSearches.add({
+      'name': '',
+      'addresses': encodedItems,
+    });
+
+    // Max 10 recent searches, ta bort äldsta om det är fler
+    while (recentSearches.length > 10) {
+      recentSearches.deleteAt(0);
     }
   }
 
