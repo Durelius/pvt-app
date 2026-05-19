@@ -4,7 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mitten/location_service/location_service.dart';
-import '../MapboxGeocodingService.dart';
+import '/MapboxGeocodingService.dart';
 
 import 'models/address_entry.dart';
 import 'models/address_group.dart';
