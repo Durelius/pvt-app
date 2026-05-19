@@ -7,6 +7,7 @@ import '../MapboxGeocodingService.dart';
 import 'package:mitten/services/auth_provider.dart';
 import 'login.dart';
 import 'profile.dart';
+import 'friends.dart';
 
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
@@ -131,26 +132,44 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'profile',
-                child: Text(
-                  'Profile',
-                  style: TextStyle(color: Colors.black),
+                child: Row(
+                  children: [
+                    Icon(Icons.person, color: Colors.black),
+                    SizedBox(width: 10),
+                    Text(
+                      'Profile',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ],
                 ),
               ),
 
 
               const PopupMenuItem(
                 value: 'friends',
-                child: Text(
-                  'Friends',
-                  style: TextStyle(color: Colors.black),
+                child: Row(
+                  children: [
+                    Icon(Icons.people, color: Colors.black),
+                    SizedBox(width: 10),
+                    Text(
+                      'Friends',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ],
                 ),
               ),
 
               const PopupMenuItem(
                 value: 'settings',
-                child: Text(
-                  'Settings(profile)',
-                  style: TextStyle(color: Colors.black),
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, color: Colors.black),
+                    SizedBox(width: 10),
+                    Text(
+                      'Settings',
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ],
                 ),
               ),
             ],
