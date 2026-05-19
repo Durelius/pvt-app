@@ -4,6 +4,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
+import 'package:mitten/services/auth_provider.dart';
+import 'login.dart';
+import 'profile.dart';
+
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
 
@@ -74,55 +78,79 @@ class _HomePageState extends State<HomePage> {
             icon: const Icon(Icons.menu),
 
             onSelected: (value) {
-              if (value == 'settings') {
-                print("Go to settings");
+              void goToLogin() {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LoginScreen(),
+                  ),
+                );
               }
 
-              if (value == 'darkmode') {
-                setState(() {
-                  isDarkMode = !isDarkMode;
-                });
+              final user = googleSignIn.currentUser;
+              final bool isLoggedIn = user != null;
 
-                print("Dark mode: $isDarkMode");
+              if (value == 'profile') {
+                if (!isLoggedIn) {
+                  goToLogin();
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
+              }
+
+              if (value == 'friends') {
+                if (!isLoggedIn) {
+                  goToLogin();
+                  return;
+                }
+
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
+              }
+
+              if (value == 'settings') {
+               Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
               }
             },
 
             itemBuilder: (context) => [
               const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings', style: TextStyle(color: Colors.black)),
+                value: 'profile',
+                child: Text(
+                  'Profile',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
 
-              const PopupMenuDivider(),
 
-              PopupMenuItem(
-                value: 'darkmode',
-                child: StatefulBuilder(
-                  builder: (context, setStatePopup) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Dark mode",
-                          style: TextStyle(color: Colors.black),
-                        ),
+              const PopupMenuItem(
+                value: 'friends',
+                child: Text(
+                  'Friends',
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
 
-                        Switch(
-                          value: isDarkMode,
-                          activeColor: const Color(0xFF63519F),
-                          onChanged: (value) {
-                            setState(() {
-                              isDarkMode = value;
-                            });
-
-                            setStatePopup(() {});
-
-                            //print("Dark mode: $value");
-                          },
-                        ),
-                      ],
-                    );
-                  },
+              const PopupMenuItem(
+                value: 'settings',
+                child: Text(
+                  'Settings(profile)',
+                  style: TextStyle(color: Colors.black),
                 ),
               ),
             ],
