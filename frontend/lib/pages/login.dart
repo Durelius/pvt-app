@@ -6,6 +6,9 @@ import 'splash.dart' show kPurple, MittenLogo;
 import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
 import 'package:mitten/services/auth_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -66,10 +69,19 @@ class LoginScreen extends StatelessWidget {
         final auth = await user.authentication;
         final String? idToken = auth.idToken;
         print("Login successful! Here is your token: $idToken");
-        _goToMain(context);
+
+        final url = Uri.parse('$apiBase/googlesigninverification/v1/verify-google-signin');
+        final response = await http.post(url,headers: {'Content-Type': 'application/json'},body: jsonEncode({'id_token': idToken}),);
+        if (response.statusCode == 200) {
+          print('Login successful: ${response.body}');
+          _goToMain(context);
+        } else {
+          print('Verification failed with status: ${response.statusCode}');
+        }
+
+        
       }
     } catch (e) {
-      print("GOOGLE SIGN-IN FAILED. Error: $e");
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Sign-in failed. Please try again.')),
