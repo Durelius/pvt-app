@@ -4,12 +4,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
-import 'package:mitten/services/auth_provider.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignIn;
 import 'login.dart';
 import 'profile.dart';
 import 'friends.dart';
 import 'settings.dart';
-
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
 
@@ -83,14 +82,12 @@ class _HomePageState extends State<HomePage> {
               void goToLogin() {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
               }
 
-              final user = googleSignIn.currentUser;
-              final bool isLoggedIn = user != null;
+              // TODO: track login state via JWT once auth flow is complete
+              const bool isLoggedIn = false;
 
               if (value == 'profile') {
                 if (!isLoggedIn) {
@@ -100,9 +97,7 @@ class _HomePageState extends State<HomePage> {
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfilePage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
                 );
               }
 
@@ -114,18 +109,14 @@ class _HomePageState extends State<HomePage> {
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const FriendsPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const FriendsPage()),
                 );
               }
 
               if (value == 'settings') {
-               Navigator.push(
+                Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
                 );
               }
             },
@@ -137,14 +128,10 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Icon(Icons.person, color: Colors.black),
                     SizedBox(width: 10),
-                    Text(
-                      'Profile',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    Text('Profile', style: TextStyle(color: Colors.black)),
                   ],
                 ),
               ),
-
 
               const PopupMenuItem(
                 value: 'friends',
@@ -152,10 +139,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Icon(Icons.people, color: Colors.black),
                     SizedBox(width: 10),
-                    Text(
-                      'Friends',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    Text('Friends', style: TextStyle(color: Colors.black)),
                   ],
                 ),
               ),
@@ -166,10 +150,7 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     Icon(Icons.settings, color: Colors.black),
                     SizedBox(width: 10),
-                    Text(
-                      'Settings',
-                      style: TextStyle(color: Colors.black),
-                    ),
+                    Text('Settings', style: TextStyle(color: Colors.black)),
                   ],
                 ),
               ),

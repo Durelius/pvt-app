@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'splash.dart' show kPurple, MittenLogo;
-
-//Imports for google sign in and location services
-import 'package:google_sign_in_platform_interface/google_sign_in_platform_interface.dart';
-import 'package:mitten/services/auth_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '../config.dart';
+import 'splash.dart' show kPurple, MittenLogo;
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -14,65 +13,88 @@ class LoginScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      body: StreamBuilder<GoogleSignInAccount?>(
-      // We listen to the global instance we set up in auth_provider.dart
-      stream: googleSignIn.onCurrentUserChanged,
-      builder: (context, snapshot) {
-        // As soon as the stream emits a user (from the web button click)
-        if (snapshot.hasData && snapshot.data != null) {
-          // Use addPostFrameCallback to avoid "Building while navigating" errors
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _goToMain(context);
-          });
-        }
-        return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              MittenLogo(size: 110),
-              const SizedBox(height: 20),
-              const Text(
-                'Mitten',
-                style: TextStyle(
-                  color: kPurple,
-                  fontSize: 34,
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FontStyle.italic,
-                  letterSpacing: -0.5,
-                ),
+      body: StreamBuilder<GoogleSignInAuthenticationEvent>(
+        stream: GoogleSignIn.instance.authenticationEvents,
+        builder: (context, snapshot) {
+          if (snapshot.hasData &&
+              snapshot.data is GoogleSignInAuthenticationEventSignIn) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _goToMain(context);
+            });
+          }
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MittenLogo(size: 110),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Mitten',
+                    style: TextStyle(
+                      color: kPurple,
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 52),
+                  kIsWeb
+                      ? (GoogleSignIn.instance as dynamic).renderButton()
+                      : _GoogleSignInButton(
+                          onPressed: () => _signInWithGoogle(context),
+                        ),
+                  const SizedBox(height: 12),
+                  _GuestButton(onPressed: () => _continueAsGuest(context)),
+                ],
               ),
-              const SizedBox(height: 52),
-              kIsWeb 
-                ? (GoogleSignInPlatform.instance as dynamic).renderButton()
-                : _GoogleSignInButton(onPressed: () => _signInWithGoogle(context)),
-              const SizedBox(height: 12),
-              _GuestButton(onPressed: () => _continueAsGuest(context)),
-            ],
-          ),
-        ),
-        );
-      },
+            ),
+          );
+        },
       ),
     );
   }
 
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
-      final user = await googleSignIn.signIn();
-      if (user != null && context.mounted) {
-        final auth = await user.authentication;
-        final String? idToken = auth.idToken;
-        print("Login successful! Here is your token: $idToken");
+      final user = await GoogleSignIn.instance.authenticate();
+      if (!context.mounted) return;
+
+      final String? idToken = user.authentication.idToken;
+      print('[login] idToken obtained: ${idToken != null}');
+
+      final url = Uri.parse('$apiBase/user/v1/login');
+      print('[login] POST $url');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id_token': idToken}),
+      );
+      print('[login] response ${response.statusCode}: ${response.body}');
+      if (response.statusCode == 200) {
         _goToMain(context);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Server error ${response.statusCode}')),
+          );
+        }
       }
-    } catch (e) {
-      print("GOOGLE SIGN-IN FAILED. Error: $e");
+    } on GoogleSignInException catch (e) {
+      print('[login] GoogleSignInException: ${e.code} — ${e.description}');
+      if (e.code == GoogleSignInExceptionCode.canceled) return;
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign-in failed. Please try again.')),
+          SnackBar(content: Text('Sign-in error: ${e.description}')),
+        );
+      }
+    } catch (e, stack) {
+      print('[login] unexpected error: $e\n$stack');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign-in failed: $e')),
         );
       }
     }
@@ -81,7 +103,6 @@ class LoginScreen extends StatelessWidget {
   void _continueAsGuest(BuildContext context) => _goToMain(context);
 
   void _goToMain(BuildContext context) {
-    // Pop everything and go to main — main.dart handles pushing MyHomePage
     Navigator.of(context).pushReplacementNamed('/main');
   }
 }

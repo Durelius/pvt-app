@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:mitten/services/auth_provider.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignIn;
+import 'package:mitten/services/location_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -11,9 +12,10 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool _locationEnabled = false;
+  final LocationService _locationService = LocationService();
 
   Future<void> _clearCache() async {
-    await googleSignIn.signOut();
+    await GoogleSignIn.instance.signOut();
     await Future.wait([
       Hive.box<dynamic>('addressEntries').clear(),
       Hive.box('recentSearches').clear(),
@@ -22,6 +24,13 @@ class _SettingsPageState extends State<SettingsPage> {
     ]);
     if (context.mounted) {
       Navigator.of(context).pushReplacementNamed('/');
+    }
+  }
+
+  Future<void> _requestLocation() async {
+    final loc = await _locationService.getCurrentLocation();
+    if (loc != null) {
+      setState(() => _locationEnabled = true);
     }
   }
 
@@ -39,15 +48,23 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             // Location tile
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: SwitchListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
                 title: const Text('Allow Location'),
                 subtitle: const Text('Let Mitten access your location'),
-                secondary: const Icon(Icons.location_on, color: Color(0xFF5C3DAB)),
-                value: _locationEnabled,
-                activeColor: const Color(0xFF99D98C),
-                onChanged: (value) {
-                  setState(() => _locationEnabled = value);
+                leading: const Icon(
+                  Icons.location_on,
+                  color: Color(0xFF5C3DAB),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () async {
+                  setState(() {
+                    if (!_locationEnabled) {
+                      _requestLocation();
+                    }
+                  });
                 },
               ),
             ),
@@ -55,9 +72,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
             // Clear cache tile
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: ListTile(
-                leading: const Icon(Icons.delete_outline, color: Color(0xFF5C3DAB)),
+                leading: const Icon(
+                  Icons.delete_outline,
+                  color: Color(0xFF5C3DAB),
+                ),
                 title: const Text('Clear Cache'),
                 subtitle: const Text('Remove all saved local data'),
                 trailing: const Icon(Icons.chevron_right),
@@ -67,7 +89,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('Clear Cache'),
-                      content: const Text('Are you sure you want to clear all cached data?'),
+                      content: const Text(
+                        'Are you sure you want to clear all cached data?',
+                      ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, false),
@@ -75,7 +99,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Clear', style: TextStyle(color: Colors.red)),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ],
                     ),

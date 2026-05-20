@@ -393,7 +393,7 @@ class _GroupSheetState extends State<_GroupSheet> {
                   GestureDetector(
                     onTap: () => _renameGroup(context),
                     child: Icon(Icons.edit_outlined,
-                        color: kPurple.withValues(alpha: 0.5), size: 20),
+                        color: kPurple.withValues(alpha: 0.5), size: 30),
                   ),
                 ],
             ),
