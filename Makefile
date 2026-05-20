@@ -24,5 +24,8 @@ flutter-dev:
 ios:
 	cd frontend && flutter emulators --launch apple_ios_simulator
 
+flutter-web:
+	cd frontend && flutter run -d chrome --web-hostname localhost --web-port 58555
+
 android:
 	emulator -avd $(shell emulator -list-avds | head -1)
