@@ -3,18 +3,18 @@ package standardrouter
 import (
 	"context"
 	"net/http"
-	"os"
 	"strings"
 
 	plog "github.com/durelius/go-prodlog"
-	jwt "github.com/golang-jwt/jwt/v5"
+	"google.golang.org/api/idtoken"
 )
 
+const googleClientID = "648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com"
+
 type UserClaims struct {
-	UserID   int    `json:"user_id"`
-	Email    string `json:"email"`
-	GoogleID string `json:"google_id"`
-	jwt.RegisteredClaims
+	GoogleID string
+	Email    string
+	Name     string
 }
 
 type contextKey string
@@ -35,17 +35,19 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 		tokenStr := strings.TrimPrefix(header, "Bearer ")
 
-		claims := &UserClaims{}
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
-			}
-			return []byte(os.Getenv("JWT_SECRET")), nil
-		})
-		if err != nil || !token.Valid {
+		payload, err := idtoken.Validate(r.Context(), tokenStr, googleClientID)
+		if err != nil {
 			plog.Infof("auth rejected: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
+		}
+
+		claims := &UserClaims{
+			GoogleID: payload.Subject,
+			Email:    payload.Claims["email"].(string),
+		}
+		if name, ok := payload.Claims["name"].(string); ok {
+			claims.Name = name
 		}
 
 		ctx := context.WithValue(r.Context(), claimsContextKey, claims)

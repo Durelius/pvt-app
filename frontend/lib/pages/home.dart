@@ -4,7 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
-import 'package:mitten/services/auth_provider.dart';
+import 'package:google_sign_in/google_sign_in.dart' show GoogleSignIn;
 import 'login.dart';
 import 'profile.dart';
 import 'friends.dart';
@@ -86,8 +86,8 @@ class _HomePageState extends State<HomePage> {
                 );
               }
 
-              final user = googleSignIn.currentUser;
-              final bool isLoggedIn = user != null;
+              // TODO: track login state via JWT once auth flow is complete
+              const bool isLoggedIn = false;
 
               if (value == 'profile') {
                 if (!isLoggedIn) {

@@ -78,6 +78,8 @@
 			<string>maps</string>
 			<string>comgooglemaps</string>
 		</array>
+		<key>GIDClientID</key>
+		<string>648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

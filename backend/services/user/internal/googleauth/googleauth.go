@@ -7,7 +7,7 @@ import (
 	"google.golang.org/api/idtoken"
 )
 
-const webClientID = "169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com"
+const webClientID = "648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com"
 
 type GoogleProfile struct {
 	GoogleID      string `json:"google_id"`
