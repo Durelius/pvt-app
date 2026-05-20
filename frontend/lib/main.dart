@@ -180,7 +180,7 @@ class _PillNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _NavItem(icon: Icons.person_rounded, index: 0, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.home, index: 0, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.add_circle_outline_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.bookmark_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
         ],
