@@ -8,6 +8,7 @@ import 'package:mitten/services/auth_provider.dart';
 import 'login.dart';
 import 'profile.dart';
 import 'friends.dart';
+import 'settings.dart';
 
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
