@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mitten/services/auth_provider.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,11 +13,15 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _locationEnabled = false;
 
   Future<void> _clearCache() async {
-    await Hive.box<dynamic>('addressEntries').clear();
+    await googleSignIn.signOut();
+    await Future.wait([
+      Hive.box<dynamic>('addressEntries').clear(),
+      Hive.box('recentSearches').clear(),
+      Hive.box('savedGroups').clear(),
+      Hive.box('homeAddress').clear(),
+    ]);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cache cleared!')),
-      );
+      Navigator.of(context).pushReplacementNamed('/');
     }
   }
 
