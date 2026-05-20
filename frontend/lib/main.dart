@@ -159,7 +159,6 @@ class _MainShellState extends State<MainShell> {
 class _PillNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
-
   const _PillNav({required this.currentIndex, required this.onTap});
 
   @override
@@ -180,9 +179,9 @@ class _PillNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _NavItem(icon: Icons.home, index: 0, currentIndex: currentIndex, onTap: onTap),
-          _NavItem(icon: Icons.add_circle_outline_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
-          _NavItem(icon: Icons.bookmark_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.home, label: 'Home', index: 0, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.add_circle_outline_rounded, label: 'Plan', index: 1, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.bookmark_rounded, label: 'Saved', index: 2, currentIndex: currentIndex, onTap: onTap),
         ],
       ),
     );
@@ -191,12 +190,14 @@ class _PillNav extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
+  final String label;
   final int index;
   final int currentIndex;
   final ValueChanged<int> onTap;
 
   const _NavItem({
     required this.icon,
+    required this.label,
     required this.index,
     required this.currentIndex,
     required this.onTap,
