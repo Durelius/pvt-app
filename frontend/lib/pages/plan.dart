@@ -13,7 +13,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../MapboxGeocodingService.dart';
 import '../config.dart';
 import 'home.dart';
-import 'profile.dart';
 
 const Color kPurple = Color(0xFF63519F);
 
