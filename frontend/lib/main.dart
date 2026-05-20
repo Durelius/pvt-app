@@ -4,7 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mitten/location_service/location_service.dart';
-import '../MapboxGeocodingService.dart';
+import '/MapboxGeocodingService.dart';
 
 import 'models/address_entry.dart';
 import 'models/address_group.dart';
@@ -44,6 +44,7 @@ void main() async {
   await Hive.openBox<AddressEntry>('addressEntries');
   await Hive.openBox('recentSearches');
   await Hive.openBox('savedGroups');
+  await Hive.openBox('homeAddress');
 
   await notifications.initialize(const InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
@@ -179,7 +180,7 @@ class _PillNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _NavItem(icon: Icons.person_rounded, index: 0, currentIndex: currentIndex, onTap: onTap),
+          _NavItem(icon: Icons.home, index: 0, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.add_circle_outline_rounded, index: 1, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.bookmark_rounded, index: 2, currentIndex: currentIndex, onTap: onTap),
         ],
