@@ -16,7 +16,7 @@ import 'pages/saved.dart';
 
 //Imports for google sign in and location services
 import 'package:flutter/foundation.dart';
-import 'services/auth_provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 final FlutterLocalNotificationsPlugin notifications =
     FlutterLocalNotificationsPlugin();
@@ -27,8 +27,13 @@ const Color kNavDark = Color(0xFF2D1F5E);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await GoogleSignIn.instance.initialize(
+    clientId: kIsWeb
+        ? '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com'
+        : null,
+  );
   if (kIsWeb) {
-    await googleSignIn.signInSilently(); 
+    GoogleSignIn.instance.attemptLightweightAuthentication();
   }
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
