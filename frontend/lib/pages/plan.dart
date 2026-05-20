@@ -13,13 +13,14 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../MapboxGeocodingService.dart';
 import '../config.dart';
 import 'home.dart';
+import 'profile.dart';
 
 const Color kPurple = Color(0xFF63519F);
 
 final Box recentSearches = Hive.box('recentSearches');
+final homeAddressBox = Hive.box('homeAddress');
 
 class PlanPage extends StatefulWidget {
-
   final AppLocation? currentLocation;
   final List<Address>? prefilledAddresses;
   const PlanPage({super.key, this.currentLocation, this.prefilledAddresses});
@@ -38,6 +39,7 @@ class _PlanPageState extends State<PlanPage> {
   bool _hasCurrentLocation = false;
   bool _hasMyAddress = false;
   String _homeAddressName = 'Saved home address';
+  final homeAddressBox = Hive.box('homeAddress');
 
   List<Address> _suggestions = [];
   String _searchTerm = "";
@@ -145,10 +147,7 @@ class _PlanPageState extends State<PlanPage> {
       setState(() => _isLoading = false);
     }
     final encodedItems = encodeItems(_items);
-    recentSearches.add({
-      'name': '',
-      'addresses': encodedItems,
-    });
+    recentSearches.add({'name': '', 'addresses': encodedItems});
 
     // Max 10 recent searches, ta bort äldsta om det är fler
     while (recentSearches.length > 10) {
@@ -351,18 +350,36 @@ class _PlanPageState extends State<PlanPage> {
                 child: OutlinedButton.icon(
                   onPressed: _hasMyAddress
                       ? null
-                      : () {
+                      : () async {
                           // TODO: hämta sparad hemadress och lägg till
-                          setState(() {
+                          final savedAddress = homeAddressBox.get(
+                            'homeAddress',
+                          );
+                          if (savedAddress == null || savedAddress.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'No home address saved in profile',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+
+                          final results = await _geocoding.getSuggestions(savedAddress);
+                          if(results.isNotEmpty){
+                            final address = results.first;
+                            setState(() {
                             _hasMyAddress = true;
                             _items.add(
                               Address(
-                                name: _homeAddressName,
-                                lat: 59.33258,
-                                lon: 18.0649,
+                                name: savedAddress,
+                                lat: address.lat,
+                                lon: address.lon,
                               ),
                             );
                           });
+                          }
                         },
                   icon: const Icon(
                     Icons.home_outlined,
@@ -437,20 +454,18 @@ class _PlanPageState extends State<PlanPage> {
                         ),
                       ),
                       trailing: GestureDetector(
-                        onTap: () => setState(
-                          (){
-                            final removed = _items[i];
-                            if (removed.name == _homeAddressName) {
-                              _hasMyAddress = false;
-                            }
-                            final lat = widget.currentLocation?.latitude;
-                            final lng = widget.currentLocation?.longitude;
-                            if(removed.lat == lat && removed.lon == lng) {
-                              _hasCurrentLocation = false;
-                            }
-                            _items.removeAt(i);
-                          },
-                        ),
+                        onTap: () => setState(() {
+                          final removed = _items[i];
+                          if (removed.name == _homeAddressName) {
+                            _hasMyAddress = false;
+                          }
+                          final lat = widget.currentLocation?.latitude;
+                          final lng = widget.currentLocation?.longitude;
+                          if (removed.lat == lat && removed.lon == lng) {
+                            _hasCurrentLocation = false;
+                          }
+                          _items.removeAt(i);
+                        }),
 
                         child: Icon(
                           Icons.remove_circle_outline,
@@ -919,26 +934,20 @@ class _PlanPageState extends State<PlanPage> {
       ],
     );
   }
-  
 }
+
 class RecentSearch {
   List<Address> addresses = [];
 }
 
 List<Map<String, dynamic>> encodeItems(List<Address> items) {
-  return items.map((a) => {
-    'name': a.name,
-    'lat': a.lat,
-    'lon': a.lon,
-  }).toList();
+  return items
+      .map((a) => {'name': a.name, 'lat': a.lat, 'lon': a.lon})
+      .toList();
 }
 
 List<Address> decodeItems(List saved) {
   return saved
-      .map((e) => Address(
-            name: e['name'],
-            lat: e['lat'],
-            lon: e['lon'],
-          ))
+      .map((e) => Address(name: e['name'], lat: e['lat'], lon: e['lon']))
       .toList();
 }
