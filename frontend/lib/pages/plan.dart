@@ -333,7 +333,7 @@ class _PlanPageState extends State<PlanPage> {
                         },
                   icon: const Icon(Icons.my_location, size: 16, color: kPurple),
                   label: const Text(
-                    'Current location',
+                    'Use current location',
                     style: TextStyle(color: kPurple, fontSize: 13),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -387,7 +387,7 @@ class _PlanPageState extends State<PlanPage> {
                     color: kPurple,
                   ),
                   label: const Text(
-                    'My address',
+                    'Use my address',
                     style: TextStyle(color: kPurple, fontSize: 13),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -769,6 +769,8 @@ class _PlanPageState extends State<PlanPage> {
     final rating = (place['rating'] as num?)?.toDouble() ?? 0.0;
     final lat = _lat(place);
     final lng = _lng(place);
+    final phoneNumber = place['internationalPhoneNumber'] as String? ?? '';
+    print('place info: $place');
 
     // Extra white space leftover for more information when nearby.go is updated
     showModalBottomSheet(
@@ -848,6 +850,17 @@ class _PlanPageState extends State<PlanPage> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              // Phonenumber
+              Text(
+                phoneNumber,
+                style: const TextStyle(
+                  color: kPurple,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
 
               // Address
               _infoRow(Icons.location_on_outlined, address),

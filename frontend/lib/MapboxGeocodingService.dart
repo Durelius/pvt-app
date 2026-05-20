@@ -29,13 +29,7 @@ class MapboxGeocodingService {
           '&bbox=17.2,58.9,19.5,60.0',  // Stockholm + Uppsala län (exkl. Västerås, Grisslehamn)
       );
 
-      print('Token: $token');           // är token laddad?
-      print('URL: $uri');                // ser URL korrekt ut?
-
       final response = await http.get(uri);
-
-      print('Status: ${response.statusCode}');   // 200 = ok, 401 = fel token
-      print('Svar: ${response.body}');           // vad säger API:et?
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
