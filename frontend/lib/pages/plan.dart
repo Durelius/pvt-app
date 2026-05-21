@@ -160,7 +160,7 @@ class _PlanPageState extends State<PlanPage> {
         _items.map((a) => {'lat': a.lat, 'lon': a.lon}).toList(),
       );
       final uri = Uri.parse('$apiBase/middle/v1/middleplaces').replace(
-        queryParameters: {'points': pointsJson, 'location_type': 'restaurant'},
+        queryParameters: {'points': pointsJson, 'location_type': 'cafe'},
       );
       final response = await http.get(uri);
       if (response.statusCode == 200) {
