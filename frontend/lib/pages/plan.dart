@@ -39,7 +39,7 @@ class _PlanPageState extends State<PlanPage> {
 
   bool _hasCurrentLocation = false;
   bool _hasMyAddress = false;
-  String _homeAddressName = 'Saved home address';
+  final String _homeAddressName = 'Saved home address';
   final homeAddressBox = Hive.box('homeAddress');
 
   List<Address> _suggestions = [];
