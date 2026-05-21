@@ -8,3 +8,21 @@ type User struct {
 	Picture       string `json:"picture"        db:"picture"`
 	EmailVerified bool   `json:"email_verified" db:"email_verified"`
 }
+
+type Friendship struct {
+	ID         int    `json:"id"          db:"id"`
+	SenderID   int    `json:"sender_id"   db:"sender_id"`
+	ReceiverID int    `json:"receiver_id" db:"receiver_id"`
+	Status     string `json:"status"      db:"status"`
+}
+
+type FriendUser struct {
+	ID      int    `json:"id"      db:"id"`
+	Name    string `json:"name"    db:"name"`
+	Picture string `json:"picture" db:"picture"`
+}
+
+type PendingRequest struct {
+	ID     int    `json:"id"     db:"id"`
+	Sender FriendUser `json:"sender"`
+}

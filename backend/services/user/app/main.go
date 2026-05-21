@@ -20,7 +20,15 @@ func main() {
 		plog.Fatalf("db connect failed: %v", err)
 	}
 
-	router, _ := standardrouter.Init()
+	router, authRouter := standardrouter.Init()
 	router.HandleFunc("/login", controller.LoginHandler).Methods("POST")
+
+	authRouter.HandleFunc("/search", controller.SearchUsersHandler).Methods("GET")
+	authRouter.HandleFunc("/friends/request", controller.SendRequestHandler).Methods("POST")
+	authRouter.HandleFunc("/friends", controller.GetFriendsHandler).Methods("GET")
+	authRouter.HandleFunc("/friends/pending", controller.GetPendingHandler).Methods("GET")
+	authRouter.HandleFunc("/friends/{id}/accept", controller.AcceptHandler).Methods("PUT")
+	authRouter.HandleFunc("/friends/{id}/decline", controller.DeclineHandler).Methods("PUT")
+
 	standardrouter.Start(router)
 }

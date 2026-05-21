@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart' show GoogleSignIn;
 import 'package:mitten/services/location_service.dart';
+import '../services/auth_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,6 +17,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _clearCache() async {
     await GoogleSignIn.instance.signOut();
+    AuthService.instance.clearToken();
     await Future.wait([
       Hive.box<dynamic>('addressEntries').clear(),
       Hive.box('recentSearches').clear(),

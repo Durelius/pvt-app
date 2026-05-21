@@ -4,7 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../MapboxGeocodingService.dart';
-import 'package:google_sign_in/google_sign_in.dart' show GoogleSignIn;
+import '../services/auth_service.dart';
+import '../services/friends_service.dart';
 import 'login.dart';
 import 'profile.dart';
 import 'friends.dart';
@@ -27,6 +28,7 @@ class _HomePageState extends State<HomePage> {
   //Mapbox API
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
   List<Address> suggestions = [];
+  List<FriendUser> userSuggestions = [];
   String searchTerm = "";
 
   //addresses stored
@@ -38,24 +40,33 @@ class _HomePageState extends State<HomePage> {
   void onTextChanged(String searchParam) {
     debouncer.debounce(const Duration(milliseconds: 400), () async {
       searchTerm = searchParam;
-      print('Söker efter: $searchTerm'); // skrivs ut när debounce triggar
 
-      if (searchTerm.trim().length < 4) {
-        setState(() => suggestions = []);
+      if (searchTerm.trim().length < 2) {
+        setState(() { suggestions = []; userSuggestions = []; });
         return;
       }
-      final results = await geocoding.getSuggestions(searchTerm);
-      setState(() => suggestions = results);
+
+      final addressFuture = searchTerm.trim().length >= 4
+          ? geocoding.getSuggestions(searchTerm)
+          : Future.value(<Address>[]);
+
+      final userFuture = AuthService.instance.isLoggedIn
+          ? FriendsService.searchUsers(searchTerm.trim())
+          : Future.value(<FriendUser>[]);
+
+      final results = await Future.wait([addressFuture, userFuture]);
+      setState(() {
+        suggestions = results[0] as List<Address>;
+        userSuggestions = results[1] as List<FriendUser>;
+      });
     });
   }
 
   void selectSuggestion(Address address) {
-    mapController.move(
-      LatLng(address.lat, address.lon),
-      15,
-    ); // flytta kartan till vald adress
+    mapController.move(LatLng(address.lat, address.lon), 15);
     setState(() {
       suggestions = [];
+      userSuggestions = [];
       controller.clear();
       searchTerm = "";
     });
@@ -67,6 +78,33 @@ class _HomePageState extends State<HomePage> {
       items.add(controller.text.trim());
       controller.clear();
     });
+  }
+
+  Future<void> _showFriendRequestDialog(FriendUser user) async {
+    setState(() { suggestions = []; userSuggestions = []; controller.clear(); searchTerm = ""; });
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(user.name),
+        content: Text('Add ${user.name} as a friend?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Add Friend', style: TextStyle(color: Color(0xFF63519F))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final ok = await FriendsService.sendFriendRequest(user.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? 'Friend request sent to ${user.name}!' : 'Could not send request.'),
+    ));
   }
 
   @override
@@ -86,8 +124,7 @@ class _HomePageState extends State<HomePage> {
                 );
               }
 
-              // TODO: track login state via JWT once auth flow is complete
-              const bool isLoggedIn = false;
+              final bool isLoggedIn = AuthService.instance.isLoggedIn;
 
               if (value == 'profile') {
                 if (!isLoggedIn) {
@@ -205,27 +242,27 @@ class _HomePageState extends State<HomePage> {
                     onChanged: onTextChanged,
                     onSubmitted: (_) => addItem(),
                   ),
-                  if (suggestions.isEmpty && searchTerm.isNotEmpty)
-                    Card(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: 1,
-                        itemBuilder: (context, index) =>
-                            const ListTile(title: Text("No suggestions found")),
-                      ),
+                  if (searchTerm.isNotEmpty && suggestions.isEmpty && userSuggestions.isEmpty)
+                    const Card(
+                      child: ListTile(title: Text("No suggestions found")),
                     ),
-                  if (suggestions.isNotEmpty)
+                  if (userSuggestions.isNotEmpty || suggestions.isNotEmpty)
                     Card(
-                      child: ListView.builder(
+                      child: ListView(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: suggestions.length,
-                        itemBuilder: (context, index) => ListTile(
-                          leading: const Icon(Icons.location_on),
-                          title: Text(suggestions[index].name),
-                          onTap: () => selectSuggestion(suggestions[index]),
-                        ),
+                        children: [
+                          ...userSuggestions.map((u) => ListTile(
+                                leading: const Icon(Icons.person),
+                                title: Text(u.name),
+                                onTap: () => _showFriendRequestDialog(u),
+                              )),
+                          ...suggestions.map((a) => ListTile(
+                                leading: const Icon(Icons.location_on),
+                                title: Text(a.name),
+                                onTap: () => selectSuggestion(a),
+                              )),
+                        ],
                       ),
                     ),
                 ],

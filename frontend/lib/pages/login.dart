@@ -1,8 +1,12 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
+import '../services/auth_service.dart';
+import '../google_sign_in_button_stub.dart'
+    if (dart.library.html) '../google_sign_in_button_web.dart';
 import 'splash.dart' show kPurple, MittenLogo;
 
 class LoginScreen extends StatelessWidget {
@@ -17,8 +21,14 @@ class LoginScreen extends StatelessWidget {
         builder: (context, snapshot) {
           if (snapshot.hasData &&
               snapshot.data is GoogleSignInAuthenticationEventSignIn) {
+            final event = snapshot.data as GoogleSignInAuthenticationEventSignIn;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _goToMain(context);
+              if (kIsWeb) {
+                _handleWebSignIn(context, event.user);
+              } else {
+                // Native: button handler already does the backend call; just navigate.
+                _goToMain(context);
+              }
             });
           }
           return Center(
@@ -40,9 +50,11 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 52),
-                  _GoogleSignInButton(
-                    onPressed: () => _signInWithGoogle(context),
-                  ),
+                  kIsWeb
+                      ? googleSignInWebButton()
+                      : _GoogleSignInButton(
+                          onPressed: () => _signInWithGoogle(context),
+                        ),
                   const SizedBox(height: 12),
                   _GuestButton(onPressed: () => _continueAsGuest(context)),
                 ],
@@ -54,41 +66,65 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
+  // Web: sign-in came from renderButton() — extract token and register with backend.
+  Future<void> _handleWebSignIn(
+      BuildContext context, GoogleSignInAccount user) async {
+    final idToken = user.authentication.idToken;
+    if (idToken != null) AuthService.instance.setToken(idToken);
+
+    try {
+      final response = await http.post(
+        Uri.parse('$apiBase/user/v1/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id_token': idToken}),
+      );
+      if (!context.mounted) return;
+      if (response.statusCode == 200) {
+        _goToMain(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server error ${response.statusCode}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign-in failed: $e')),
+        );
+      }
+    }
+  }
+
+  // Native: authenticate() triggers the Google sign-in flow.
   Future<void> _signInWithGoogle(BuildContext context) async {
     try {
       final user = await GoogleSignIn.instance.authenticate();
       if (!context.mounted) return;
 
       final String? idToken = user.authentication.idToken;
-      print('[login] idToken obtained: ${idToken != null}');
+      if (idToken != null) AuthService.instance.setToken(idToken);
 
-      final url = Uri.parse('$apiBase/user/v1/login');
-      print('[login] POST $url');
       final response = await http.post(
-        url,
+        Uri.parse('$apiBase/user/v1/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id_token': idToken}),
       );
-      print('[login] response ${response.statusCode}: ${response.body}');
+      if (!context.mounted) return;
       if (response.statusCode == 200) {
         _goToMain(context);
       } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Server error ${response.statusCode}')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Server error ${response.statusCode}')),
+        );
       }
     } on GoogleSignInException catch (e) {
-      print('[login] GoogleSignInException: ${e.code} — ${e.description}');
       if (e.code == GoogleSignInExceptionCode.canceled) return;
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Sign-in error: ${e.description}')),
         );
       }
-    } catch (e, stack) {
-      print('[login] unexpected error: $e\n$stack');
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Sign-in failed: $e')),
@@ -100,7 +136,9 @@ class LoginScreen extends StatelessWidget {
   void _continueAsGuest(BuildContext context) => _goToMain(context);
 
   void _goToMain(BuildContext context) {
-    Navigator.of(context).pushReplacementNamed('/main');
+    if (context.mounted) {
+      Navigator.of(context).pushReplacementNamed('/main');
+    }
   }
 }
 
