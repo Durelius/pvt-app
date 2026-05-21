@@ -44,7 +44,7 @@ func Instance() *sqlx.DB {
 }
 
 func migrate(db *sqlx.DB) error {
-	_, err := db.Exec(`
+	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id             SERIAL PRIMARY KEY,
 			google_id      TEXT UNIQUE NOT NULL,
@@ -64,6 +64,14 @@ func migrate(db *sqlx.DB) error {
 			updated_at  TIMESTAMPTZ DEFAULT NOW(),
 			UNIQUE(sender_id, receiver_id)
 		)
+	`); err != nil {
+		return err
+	}
+	_, err := db.Exec(`
+		ALTER TABLE users
+			ADD COLUMN IF NOT EXISTS home_address_name TEXT,
+			ADD COLUMN IF NOT EXISTS home_address_lat  FLOAT8,
+			ADD COLUMN IF NOT EXISTS home_address_lon  FLOAT8
 	`)
 	return err
 }

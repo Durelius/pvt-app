@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config.dart';
@@ -22,14 +23,12 @@ class LoginScreen extends StatelessWidget {
           if (snapshot.hasData &&
               snapshot.data is GoogleSignInAuthenticationEventSignIn) {
             final event = snapshot.data as GoogleSignInAuthenticationEventSignIn;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (kIsWeb) {
+            if (kIsWeb) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
                 _handleWebSignIn(context, event.user);
-              } else {
-                // Native: button handler already does the backend call; just navigate.
-                _goToMain(context);
-              }
-            });
+              });
+            }
+            // Native: button handler (_signInWithGoogle) drives all post-login navigation.
           }
           return Center(
             child: Padding(
@@ -80,7 +79,7 @@ class LoginScreen extends StatelessWidget {
       );
       if (!context.mounted) return;
       if (response.statusCode == 200) {
-        _goToMain(context);
+        _navigateAfterLogin(context, response.body);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Server error ${response.statusCode}')),
@@ -111,7 +110,7 @@ class LoginScreen extends StatelessWidget {
       );
       if (!context.mounted) return;
       if (response.statusCode == 200) {
-        _goToMain(context);
+        _navigateAfterLogin(context, response.body);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Server error ${response.statusCode}')),
@@ -133,12 +132,29 @@ class LoginScreen extends StatelessWidget {
     }
   }
 
-  void _continueAsGuest(BuildContext context) => _goToMain(context);
-
-  void _goToMain(BuildContext context) {
-    if (context.mounted) {
+  void _navigateAfterLogin(BuildContext context, String responseBody) {
+    if (!context.mounted) return;
+    try {
+      final user = jsonDecode(responseBody) as Map<String, dynamic>;
+      final homeAddressName = (user['home_address_name'] as String?) ?? '';
+      if (homeAddressName.isNotEmpty) {
+        final box = Hive.box('homeAddress');
+        box.put('homeAddress', jsonEncode({
+          'name': homeAddressName,
+          'lat': user['home_address_lat'] ?? 0.0,
+          'lon': user['home_address_lon'] ?? 0.0,
+        }));
+        Navigator.of(context).pushReplacementNamed('/main');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/setup');
+      }
+    } catch (_) {
       Navigator.of(context).pushReplacementNamed('/main');
     }
+  }
+
+  void _continueAsGuest(BuildContext context) {
+    if (context.mounted) Navigator.of(context).pushReplacementNamed('/main');
   }
 }
 

@@ -12,6 +12,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../MapboxGeocodingService.dart';
 import '../config.dart';
+import '../services/auth_service.dart';
+import '../services/friends_service.dart';
 import 'home.dart';
 
 const Color kPurple = Color(0xFF63519F);
@@ -41,6 +43,8 @@ class _PlanPageState extends State<PlanPage> {
   final homeAddressBox = Hive.box('homeAddress');
 
   List<Address> _suggestions = [];
+  List<FriendUser> _friendSuggestions = [];
+  List<FriendUser> _friends = [];
   String _searchTerm = "";
   final List<Address> _items = [];
   int _searchVersion = 0;
@@ -54,6 +58,8 @@ class _PlanPageState extends State<PlanPage> {
     if (widget.prefilledAddresses != null) {
       _items.addAll(widget.prefilledAddresses!);
     }
+
+    if (AuthService.instance.isLoggedIn) _loadFriends();
 
     /*final lat = widget.currentLocation?.latitude ?? 0;
     final lng = widget.currentLocation?.longitude ?? 0;
@@ -84,19 +90,52 @@ class _PlanPageState extends State<PlanPage> {
     } catch (_) {}
   }
 
+  Future<void> _loadFriends() async {
+    final friends = await FriendsService.getFriends();
+    if (mounted) setState(() => _friends = friends);
+  }
+
   void _onTextChanged(String value) {
     _debouncer.debounce(const Duration(milliseconds: 400), () async {
       _searchTerm = value;
-      if (_searchTerm.trim().length < 4) {
-        setState(() => _suggestions = []);
+      final term = _searchTerm.trim();
+      if (term.length < 2) {
+        setState(() { _suggestions = []; _friendSuggestions = []; });
         return;
       }
+
+      final matchingFriends = _friends
+          .where((f) => f.name.toLowerCase().contains(term.toLowerCase()))
+          .toList();
+
+      if (term.length < 4) {
+        setState(() { _suggestions = []; _friendSuggestions = matchingFriends; });
+        return;
+      }
+
       final version = ++_searchVersion;
       final results = await _geocoding.getSuggestions(_searchTerm);
       if (version == _searchVersion) {
-        setState(() => _suggestions = results);
+        setState(() {
+          _suggestions = results;
+          _friendSuggestions = matchingFriends;
+        });
       }
     });
+  }
+
+  void _selectFriend(FriendUser friend) {
+    if (!friend.hasHomeAddress) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("${friend.name} hasn't set a home address yet")),
+      );
+      return;
+    }
+    _selectSuggestion(Address(
+      name: "${friend.name}'s home",
+      lat: friend.homeAddressLat,
+      lon: friend.homeAddressLon,
+    ));
   }
 
   void _selectSuggestion(Address address) {
@@ -105,6 +144,7 @@ class _PlanPageState extends State<PlanPage> {
     setState(() {
       _items.add(address);
       _suggestions = [];
+      _friendSuggestions = [];
       _searchTerm = '';
       _controller.clear();
     });
@@ -201,6 +241,7 @@ class _PlanPageState extends State<PlanPage> {
                       _controller.clear();
                       _searchTerm = '';
                       _suggestions = [];
+                      _friendSuggestions = [];
                       _focusNode.unfocus();
                     }),
                     child: const Icon(
@@ -235,6 +276,7 @@ class _PlanPageState extends State<PlanPage> {
                           _controller.clear();
                           _searchTerm = '';
                           _suggestions = [];
+                          _friendSuggestions = [];
                         })
                       : null,
                   child: Icon(
@@ -246,7 +288,7 @@ class _PlanPageState extends State<PlanPage> {
               ],
             ),
           ),
-          if (_suggestions.isNotEmpty)
+          if (_friendSuggestions.isNotEmpty || _suggestions.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: 6),
               decoration: BoxDecoration(
@@ -263,39 +305,56 @@ class _PlanPageState extends State<PlanPage> {
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _suggestions.length,
+                itemCount: _friendSuggestions.length + _suggestions.length,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   color: Colors.white.withValues(alpha: 0.15),
                   indent: 52,
                 ),
                 itemBuilder: (context, i) {
-                  final parts = _suggestions[i].name.split(',');
+                  if (i < _friendSuggestions.length) {
+                    final friend = _friendSuggestions[i];
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.person, color: Colors.white70, size: 22),
+                      title: Text(
+                        friend.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white),
+                      ),
+                      subtitle: friend.hasHomeAddress
+                          ? Text(
+                              friend.homeAddressName,
+                              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)),
+                            )
+                          : Text(
+                              'No home address set',
+                              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.45)),
+                            ),
+                      trailing: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.add, color: Colors.white, size: 17),
+                      ),
+                      onTap: () => _selectFriend(friend),
+                    );
+                  }
+                  final idx = i - _friendSuggestions.length;
+                  final parts = _suggestions[idx].name.split(',');
                   final street = parts.first.trim();
                   final rest = parts.skip(1).join(',').trim();
                   return ListTile(
                     dense: true,
-                    leading: const Icon(
-                      Icons.location_on,
-                      color: Colors.white70,
-                      size: 22,
-                    ),
+                    leading: const Icon(Icons.location_on, color: Colors.white70, size: 22),
                     title: Text(
                       street,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white),
                     ),
                     subtitle: rest.isNotEmpty
-                        ? Text(
-                            rest,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.65),
-                            ),
-                          )
+                        ? Text(rest, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)))
                         : null,
                     trailing: Container(
                       width: 28,
@@ -304,13 +363,9 @@ class _PlanPageState extends State<PlanPage> {
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 17,
-                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 17),
                     ),
-                    onTap: () => _selectSuggestion(_suggestions[i]),
+                    onTap: () => _selectSuggestion(_suggestions[idx]),
                   );
                 },
               ),
@@ -349,42 +404,31 @@ class _PlanPageState extends State<PlanPage> {
                 child: OutlinedButton.icon(
                   onPressed: _hasMyAddress
                       ? null
-                      : () async {
-                          // TODO: hämta sparad hemadress och lägg till
-                          final savedAddress = homeAddressBox.get(
-                            'homeAddress',
-                          );
-                          if (savedAddress == null || savedAddress.isEmpty) {
+                      : () {
+                          final raw = homeAddressBox.get('homeAddress');
+                          if (raw == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'No home address saved in profile',
-                                ),
-                              ),
+                              const SnackBar(content: Text('No home address saved in profile')),
                             );
                             return;
                           }
-
-                          final results = await _geocoding.getSuggestions(savedAddress);
-                          if(results.isNotEmpty){
-                            final address = results.first;
+                          try {
+                            final data = jsonDecode(raw as String) as Map<String, dynamic>;
                             setState(() {
-                            _hasMyAddress = true;
-                            _items.add(
-                              Address(
-                                name: savedAddress,
-                                lat: address.lat,
-                                lon: address.lon,
-                              ),
+                              _hasMyAddress = true;
+                              _items.add(Address(
+                                name: data['name'] as String,
+                                lat: (data['lat'] as num).toDouble(),
+                                lon: (data['lon'] as num).toDouble(),
+                              ));
+                            });
+                          } catch (_) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('No home address saved in profile')),
                             );
-                          });
                           }
                         },
-                  icon: const Icon(
-                    Icons.home_outlined,
-                    size: 16,
-                    color: kPurple,
-                  ),
+                  icon: const Icon(Icons.home_outlined, size: 16, color: kPurple),
                   label: const Text(
                     'Use my address',
                     style: TextStyle(color: kPurple, fontSize: 13),

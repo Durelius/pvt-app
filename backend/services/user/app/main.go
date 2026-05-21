@@ -29,6 +29,7 @@ func main() {
 	authRouter.HandleFunc("/friends/pending", controller.GetPendingHandler).Methods("GET")
 	authRouter.HandleFunc("/friends/{id}/accept", controller.AcceptHandler).Methods("PUT")
 	authRouter.HandleFunc("/friends/{id}/decline", controller.DeclineHandler).Methods("PUT")
+	authRouter.HandleFunc("/home-address", controller.SetHomeAddressHandler).Methods("PUT")
 
 	standardrouter.Start(router)
 }

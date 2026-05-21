@@ -1,12 +1,15 @@
 package models
 
 type User struct {
-	ID            int    `json:"id"             db:"id"`
-	GoogleID      string `json:"google_id"      db:"google_id"`
-	Email         string `json:"email"          db:"email"`
-	Name          string `json:"name"           db:"name"`
-	Picture       string `json:"picture"        db:"picture"`
-	EmailVerified bool   `json:"email_verified" db:"email_verified"`
+	ID              int     `json:"id"               db:"id"`
+	GoogleID        string  `json:"google_id"        db:"google_id"`
+	Email           string  `json:"email"            db:"email"`
+	Name            string  `json:"name"             db:"name"`
+	Picture         string  `json:"picture"          db:"picture"`
+	EmailVerified   bool    `json:"email_verified"   db:"email_verified"`
+	HomeAddressName string  `json:"home_address_name" db:"home_address_name"`
+	HomeAddressLat  float64 `json:"home_address_lat"  db:"home_address_lat"`
+	HomeAddressLon  float64 `json:"home_address_lon"  db:"home_address_lon"`
 }
 
 type Friendship struct {
@@ -17,9 +20,12 @@ type Friendship struct {
 }
 
 type FriendUser struct {
-	ID      int    `json:"id"      db:"id"`
-	Name    string `json:"name"    db:"name"`
-	Picture string `json:"picture" db:"picture"`
+	ID              int     `json:"id"               db:"id"`
+	Name            string  `json:"name"             db:"name"`
+	Picture         string  `json:"picture"          db:"picture"`
+	HomeAddressName string  `json:"home_address_name" db:"home_address_name"`
+	HomeAddressLat  float64 `json:"home_address_lat"  db:"home_address_lat"`
+	HomeAddressLon  float64 `json:"home_address_lon"  db:"home_address_lon"`
 }
 
 type PendingRequest struct {

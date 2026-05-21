@@ -7,8 +7,12 @@ import (
 
 func GetUserByGoogleID(db *sqlx.DB, googleID string) (*models.User, error) {
 	var user models.User
-	err := db.QueryRowx(
-		`SELECT id, google_id, email, name, picture, email_verified FROM users WHERE google_id = $1`,
+	err := db.QueryRowx(`
+		SELECT id, google_id, email, name, picture, email_verified,
+		       COALESCE(home_address_name, '') AS home_address_name,
+		       COALESCE(home_address_lat, 0)  AS home_address_lat,
+		       COALESCE(home_address_lon, 0)  AS home_address_lon
+		FROM users WHERE google_id = $1`,
 		googleID,
 	).StructScan(&user)
 	return &user, err
@@ -40,7 +44,11 @@ func SendFriendRequest(db *sqlx.DB, senderID, receiverID int) error {
 func GetFriends(db *sqlx.DB, userID int) ([]models.FriendUser, error) {
 	var friends []models.FriendUser
 	err := db.Select(&friends, `
-		SELECT u.id, u.name, u.picture FROM users u
+		SELECT u.id, u.name, u.picture,
+		       COALESCE(u.home_address_name, '') AS home_address_name,
+		       COALESCE(u.home_address_lat, 0)  AS home_address_lat,
+		       COALESCE(u.home_address_lon, 0)  AS home_address_lon
+		FROM users u
 		JOIN friendships f ON (
 			(f.sender_id = $1 AND f.receiver_id = u.id) OR
 			(f.receiver_id = $1 AND f.sender_id = u.id)

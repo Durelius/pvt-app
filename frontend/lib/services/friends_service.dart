@@ -7,11 +7,29 @@ class FriendUser {
   final int id;
   final String name;
   final String picture;
+  final String homeAddressName;
+  final double homeAddressLat;
+  final double homeAddressLon;
 
-  FriendUser({required this.id, required this.name, required this.picture});
+  FriendUser({
+    required this.id,
+    required this.name,
+    required this.picture,
+    this.homeAddressName = '',
+    this.homeAddressLat = 0.0,
+    this.homeAddressLon = 0.0,
+  });
 
-  factory FriendUser.fromJson(Map<String, dynamic> j) =>
-      FriendUser(id: j['id'], name: j['name'] ?? '', picture: j['picture'] ?? '');
+  bool get hasHomeAddress => homeAddressName.isNotEmpty;
+
+  factory FriendUser.fromJson(Map<String, dynamic> j) => FriendUser(
+        id: j['id'],
+        name: j['name'] ?? '',
+        picture: j['picture'] ?? '',
+        homeAddressName: j['home_address_name'] ?? '',
+        homeAddressLat: (j['home_address_lat'] as num?)?.toDouble() ?? 0.0,
+        homeAddressLon: (j['home_address_lon'] as num?)?.toDouble() ?? 0.0,
+      );
 }
 
 class PendingRequest {

@@ -25,17 +25,26 @@ class _HomePageState extends State<HomePage> {
   final Debouncer debouncer = Debouncer();
   final TextEditingController controller = TextEditingController();
   final MapController mapController = MapController();
-  //Mapbox API
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
   List<Address> suggestions = [];
   List<FriendUser> userSuggestions = [];
   String searchTerm = "";
+  int _pendingFriendCount = 0;
 
-  //addresses stored
   final List<String> items = [];
-
-  //list of results when searching for the middle
   List<dynamic> _results = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPendingCount();
+  }
+
+  Future<void> _refreshPendingCount() async {
+    if (!AuthService.instance.isLoggedIn) return;
+    final pending = await FriendsService.getPendingRequests();
+    if (mounted) setState(() => _pendingFriendCount = pending.length);
+  }
 
   void onTextChanged(String searchParam) {
     debouncer.debounce(const Duration(milliseconds: 400), () async {
@@ -110,92 +119,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Home"),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
-
-            onSelected: (value) {
-              void goToLogin() {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-              }
-
-              final bool isLoggedIn = AuthService.instance.isLoggedIn;
-
-              if (value == 'profile') {
-                if (!isLoggedIn) {
-                  goToLogin();
-                  return;
-                }
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfilePage()),
-                );
-              }
-
-              if (value == 'friends') {
-                if (!isLoggedIn) {
-                  goToLogin();
-                  return;
-                }
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FriendsPage()),
-                );
-              }
-
-              if (value == 'settings') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SettingsPage()),
-                );
-              }
-            },
-
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    Icon(Icons.person, color: Colors.black),
-                    SizedBox(width: 10),
-                    Text('Profile', style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-              ),
-
-              const PopupMenuItem(
-                value: 'friends',
-                child: Row(
-                  children: [
-                    Icon(Icons.people, color: Colors.black),
-                    SizedBox(width: 10),
-                    Text('Friends', style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-              ),
-
-              const PopupMenuItem(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, color: Colors.black),
-                    SizedBox(width: 10),
-                    Text('Settings', style: TextStyle(color: Colors.black)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-
       body: Stack(
         children: [
           FlutterMap(
@@ -219,28 +142,66 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.02,
-            left: 16,
-            right: 16,
-            child: Material(
-              color: Colors.transparent,
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      hintText: 'Sök adress...',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            hintText: 'Sök adress...',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                          onChanged: onTextChanged,
+                          onSubmitted: (_) => addItem(),
+                        ),
                       ),
-                      prefixIcon: const Icon(Icons.search),
-                    ),
-                    onChanged: onTextChanged,
-                    onSubmitted: (_) => addItem(),
+                      const SizedBox(width: 8),
+                      _MenuButton(
+                        hasBadge: _pendingFriendCount > 0,
+                        onSelected: (value) {
+                          void goToLogin() {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const LoginScreen()),
+                            );
+                          }
+
+                          if (value == 'close') return;
+
+                          final bool isLoggedIn = AuthService.instance.isLoggedIn;
+
+                          if (value == 'profile') {
+                            if (!isLoggedIn) { goToLogin(); return; }
+                            Navigator.push(context,
+                                MaterialPageRoute(builder: (context) => const ProfilePage()));
+                          }
+                          if (value == 'friends') {
+                            if (!isLoggedIn) { goToLogin(); return; }
+                            Navigator.push(context,
+                                MaterialPageRoute(builder: (context) => const FriendsPage()))
+                              .then((_) => _refreshPendingCount());
+                          }
+                          if (value == 'settings') {
+                            Navigator.push(context,
+                                MaterialPageRoute(builder: (context) => const SettingsPage()));
+                          }
+                        },
+                        pendingFriendCount: _pendingFriendCount,
+                      ),
+                    ],
                   ),
                   if (searchTerm.isNotEmpty && suggestions.isEmpty && userSuggestions.isEmpty)
                     const Card(
@@ -270,6 +231,112 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MenuButton extends StatelessWidget {
+  final bool hasBadge;
+  final int pendingFriendCount;
+  final void Function(String) onSelected;
+
+  const _MenuButton({
+    required this.hasBadge,
+    required this.pendingFriendCount,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: PopupMenuButton<String>(
+        onSelected: onSelected,
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.menu, color: Colors.black87),
+            if (hasBadge)
+              const Positioned(
+                top: -3,
+                right: -3,
+                child: _BadgeDot(),
+              ),
+          ],
+        ),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'close',
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(Icons.close, color: Colors.black54),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(height: 1),
+          const PopupMenuItem(
+            value: 'profile',
+            child: Row(
+              children: [
+                Icon(Icons.person, color: Colors.black),
+                SizedBox(width: 10),
+                Text('Profile', style: TextStyle(color: Colors.black)),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'friends',
+            child: Row(
+              children: [
+                const Icon(Icons.people, color: Colors.black),
+                const SizedBox(width: 10),
+                const Text('Friends', style: TextStyle(color: Colors.black)),
+                if (pendingFriendCount > 0) ...[
+                  const SizedBox(width: 8),
+                  const _BadgeDot(),
+                ],
+              ],
+            ),
+          ),
+          const PopupMenuItem(
+            value: 'settings',
+            child: Row(
+              children: [
+                Icon(Icons.settings, color: Colors.black),
+                SizedBox(width: 10),
+                Text('Settings', style: TextStyle(color: Colors.black)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeDot extends StatelessWidget {
+  const _BadgeDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: const BoxDecoration(
+        color: Colors.red,
+        shape: BoxShape.circle,
       ),
     );
   }

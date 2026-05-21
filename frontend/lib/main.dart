@@ -10,10 +10,10 @@ import 'models/address_entry.dart';
 import 'models/address_group.dart';
 
 import 'pages/home.dart';
+import 'pages/home_address_setup.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
 import 'pages/saved.dart';
-import 'pages/friends.dart';
 
 //Imports for google sign in and location services
 import 'package:flutter/foundation.dart';
@@ -84,6 +84,7 @@ class MyApp extends StatelessWidget {
         '/': (_) => const LoginScreen(),
         '/main': (_) => const MainShell(),
         '/login': (_) => const LoginScreen(),
+        '/setup': (_) => const HomeAddressSetupPage(),
       },
       initialRoute: '/',
     );
@@ -133,7 +134,6 @@ class _MainShellState extends State<MainShell> {
         prefilledAddresses: _prefilledAddresses,
       ),
       SavedPage(onOpenPlan: _openPlanWithAddresses),
-      const FriendsPage(),
     ];
 
     return Scaffold(
@@ -189,7 +189,6 @@ class _PillNav extends StatelessWidget {
           _NavItem(icon: Icons.home, label: 'Home', index: 0, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.add_circle_outline_rounded, label: 'Plan', index: 1, currentIndex: currentIndex, onTap: onTap),
           _NavItem(icon: Icons.bookmark_rounded, label: 'Saved', index: 2, currentIndex: currentIndex, onTap: onTap),
-          _NavItem(icon: Icons.people, label: 'Friends', index: 3, currentIndex: currentIndex, onTap: onTap),
         ],
       ),
     );
