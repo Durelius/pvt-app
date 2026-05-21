@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -41,11 +40,9 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 52),
-                  kIsWeb
-                      ? (GoogleSignIn.instance as dynamic).renderButton()
-                      : _GoogleSignInButton(
-                          onPressed: () => _signInWithGoogle(context),
-                        ),
+                  _GoogleSignInButton(
+                    onPressed: () => _signInWithGoogle(context),
+                  ),
                   const SizedBox(height: 12),
                   _GuestButton(onPressed: () => _continueAsGuest(context)),
                 ],
