@@ -40,17 +40,19 @@ type Place struct {
 	ID                  string        `json:"id"`
 	DisplayName         LocalizedText `json:"displayName"`
 	FormattedAddress    string        `json:"formattedAddress"`
-	Rating              float64       `json:"rating"`
 	Location            LatLng        `json:"location"`
 	Types               []string      `json:"types"`
 	PrimaryType         string        `json:"primaryType"`
+	Photos              []Photo       `json:"photos"`
+
+	/** Pro tools
+	Rating              float64       `json:"rating"`
 	PhoneNumber         string        `json:"internationalPhoneNumber"`
 	WebsiteURI          string        `json:"websiteUri"`
 	PriceLevel          string        `json:"priceLevel"`
 	UserRatingCount     int           `json:"userRatingCount"`
 	CurrentOpeningHours OpeningHours  `json:"currentOpeningHours"`
 	RegularOpeningHours OpeningHours  `json:"regularOpeningHours"`
-	Photos              []Photo       `json:"photos"`
 	Reviews             []Review      `json:"reviews"`
 	EditorialSummary    LocalizedText `json:"editorialSummary"`
 	Takeout             bool          `json:"takeout"`
@@ -64,7 +66,8 @@ type Place struct {
 	ServesLunch         bool          `json:"servesLunch"`
 	ServesDinner        bool          `json:"servesDinner"`
 	ServesBeer          bool          `json:"servesBeer"`
-	AccessibilityOptions AccessInfo   `json:"accessibilityOptions"`
+	AccessibilityOptions AccessInfo   `json:"accessibilityOptions"` 
+	**/
 }
 
 type LocalizedText struct {
@@ -117,13 +120,7 @@ type AccessInfo struct {
 }
 
 const fieldMask = "places.id,places.displayName,places.formattedAddress," +
-	"places.rating,places.location,places.types,places.primaryType," +
-	"places.internationalPhoneNumber,places.websiteUri,places.priceLevel," +
-	"places.userRatingCount,places.currentOpeningHours,places.regularOpeningHours," +
-	"places.photos,places.reviews,places.editorialSummary,places.takeout," +
-	"places.delivery,places.dineIn,places.goodForChildren,places.outdoorSeating," +
-	"places.liveMusic,places.servesCoffee,places.servesBreakfast,places.servesLunch," +
-	"places.servesDinner,places.servesBeer,places.accessibilityOptions"
+    "places.location,places.types,places.primaryType,places.photos"
 
 func Nearby(point location.Point, locationType string, radiusMeters float64) ([]Place, error) {
 	apiKey := os.Getenv("PLACES_KEY")
