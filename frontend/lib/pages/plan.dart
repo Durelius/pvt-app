@@ -698,7 +698,11 @@ class _PlanPageState extends State<PlanPage> {
   Widget _buildPlaceCard(Map<String, dynamic> place) {
     final name = place['displayName']['text'] as String;
     final address = place['formattedAddress'] as String;
-    final rating = (place['rating'] as num?)?.toDouble() ?? 0.0;
+    // Foursquare rating is 0–10; divide by 2 for 5-star display
+    final rating = ((place['rating'] as num?)?.toDouble() ?? 0.0) / 2.0;
+    final openNow = place['openNow'] as bool?;
+    final cuisine = (place['cuisine'] as String?)?.split(';').first;
+    final priceLevel = place['priceLevel'] as int? ?? 0;
 
     return GestureDetector(
       onTap: () => _showPlaceSheet(context, place),
@@ -727,9 +731,26 @@ class _PlanPageState extends State<PlanPage> {
                   const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
                   const SizedBox(width: 4),
                   Text(
-                    rating.toStringAsFixed(1),
+                    rating > 0 ? rating.toStringAsFixed(1) : '–',
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (openNow != null) _openBadge(openNow),
+                  if (cuisine != null && cuisine.isNotEmpty) ...[
+                    if (openNow != null) const SizedBox(width: 6),
+                    _cuisineChip(cuisine),
+                  ],
+                  if (priceLevel > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '\$' * priceLevel,
+                      style: const TextStyle(color: Colors.white60, fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -761,17 +782,45 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
+  Widget _openBadge(bool isOpen) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: isOpen ? Colors.green.shade400 : Colors.red.shade300,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          isOpen ? 'Open' : 'Closed',
+          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+      );
+
+  Widget _cuisineChip(String label) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label[0].toUpperCase() + label.substring(1),
+          style: const TextStyle(color: Colors.white, fontSize: 11),
+        ),
+      );
+
   // "View on map" moves camera; "Get directions" opens Maps
   void _showPlaceSheet(BuildContext context, Map<String, dynamic> place) {
     final name = place['displayName']['text'] as String;
     final address = place['formattedAddress'] as String;
-    final rating = (place['rating'] as num?)?.toDouble() ?? 0.0;
+    // Foursquare rating is 0–10; divide by 2 for 5-star display
+    final rating = ((place['rating'] as num?)?.toDouble() ?? 0.0) / 2.0;
     final lat = _lat(place);
     final lng = _lng(place);
-    final phoneNumber = place['internationalPhoneNumber'] as String? ?? '';
-    print('place info: $place');
+    final openNow = place['openNow'] as bool?;
+    final openingHours = place['openingHours'] as String?;
+    final hoursDisplay = place['hoursDisplay'] as String?;
+    final phone = place['phone'] as String?;
+    final website = place['website'] as String?;
+    final tips = (place['tips'] as List?)?.cast<String>() ?? [];
 
-    // Extra white space leftover for more information when nearby.go is updated
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -850,19 +899,64 @@ class _PlanPageState extends State<PlanPage> {
               ),
               const SizedBox(height: 16),
 
-              // Phonenumber
-              Text(
-                phoneNumber,
-                style: const TextStyle(
-                  color: kPurple,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-
               // Address
               _infoRow(Icons.location_on_outlined, address),
+
+              // Opening hours (Foursquare human-readable, or raw OSM tag)
+              if ((hoursDisplay ?? openingHours) != null) ...[
+                const SizedBox(height: 10),
+                _infoRow(
+                  Icons.schedule_outlined,
+                  hoursDisplay ?? openingHours!,
+                  color: openNow == true ? Colors.green.shade600 : null,
+                ),
+              ],
+
+              // Phone
+              if (phone != null && phone.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse('tel:$phone')),
+                  child: _infoRow(Icons.phone_outlined, phone, color: kPurple),
+                ),
+              ],
+
+              // Website
+              if (website != null && website.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => launchUrl(Uri.parse(website), mode: LaunchMode.externalApplication),
+                  child: _infoRow(Icons.language_outlined, website, color: kPurple),
+                ),
+              ],
+
+              // Tips / reviews
+              if (tips.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'What people say',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 10),
+                ...tips.take(3).map(
+                  (tip) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.format_quote, size: 16, color: Colors.grey.shade400),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            tip,
+                            style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
 
               if (lat != null && lng != null) ...[
                 const SizedBox(height: 24),

@@ -5,12 +5,61 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"strings"
+
+	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
+
+// Overpass public instances tried in order on failure.
+var overpassEndpoints = []string{
+	"https://overpass-api.de/api/interpreter",
+	"https://overpass.kumi.systems/api/interpreter",
+	"https://overpass.openstreetmap.ru/api/interpreter",
+}
+
+// ---- Place model ----
+
+type Place struct {
+	ID               string        `json:"id"`
+	DisplayName      LocalizedText `json:"displayName"`
+	FormattedAddress string        `json:"formattedAddress"`
+	Rating           float64       `json:"rating"` // heuristic 0–10
+	Location         LatLng        `json:"location"`
+
+	// OSM tags — free, extracted from the Overpass response we already fetch
+	OpeningHours   string `json:"openingHours,omitempty"`
+	Phone          string `json:"phone,omitempty"`
+	Website        string `json:"website,omitempty"`
+	Cuisine        string `json:"cuisine,omitempty"`
+	OutdoorSeating bool   `json:"outdoorSeating,omitempty"`
+	Wheelchair     string `json:"wheelchair,omitempty"`
+	DietVegan      bool   `json:"dietVegan,omitempty"`
+	DietVegetarian bool   `json:"dietVegetarian,omitempty"`
+	Wifi           bool   `json:"wifi,omitempty"`
+	Smoking        string `json:"smoking,omitempty"`
+	Dog            bool   `json:"dogFriendly,omitempty"`
+	Takeaway       bool   `json:"takeaway,omitempty"`
+	Organic        bool   `json:"organic,omitempty"`
+	Noise          string `json:"-"`
+	OSMAmenity     string `json:"-"`
+}
+
+type LocalizedText struct {
+	Text string `json:"text"`
+}
+
+type LatLng struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+// ---- Google Places (kept as fallback) ----
 
 type NearbySearchRequest struct {
 	IncludedTypes       []string            `json:"includedTypes"`
@@ -27,104 +76,12 @@ type Circle struct {
 	Radius float64 `json:"radius"`
 }
 
-type LatLng struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
 type PlacesResponse struct {
 	Places []Place `json:"places"`
 }
 
-type Place struct {
-	ID                  string        `json:"id"`
-	DisplayName         LocalizedText `json:"displayName"`
-	FormattedAddress    string        `json:"formattedAddress"`
-	Location            LatLng        `json:"location"`
-	Types               []string      `json:"types"`
-	PrimaryType         string        `json:"primaryType"`
-	Photos              []Photo       `json:"photos"`
-
-	/** Pro tools
-	Rating              float64       `json:"rating"`
-	PhoneNumber         string        `json:"internationalPhoneNumber"`
-	WebsiteURI          string        `json:"websiteUri"`
-	PriceLevel          string        `json:"priceLevel"`
-	UserRatingCount     int           `json:"userRatingCount"`
-	CurrentOpeningHours OpeningHours  `json:"currentOpeningHours"`
-	RegularOpeningHours OpeningHours  `json:"regularOpeningHours"`
-	Reviews             []Review      `json:"reviews"`
-	EditorialSummary    LocalizedText `json:"editorialSummary"`
-	Takeout             bool          `json:"takeout"`
-	Delivery            bool          `json:"delivery"`
-	DineIn              bool          `json:"dineIn"`
-	GoodForChildren     bool          `json:"goodForChildren"`
-	OutdoorSeating      bool          `json:"outdoorSeating"`
-	LiveMusic           bool          `json:"liveMusic"`
-	ServesCoffee        bool          `json:"servesCoffee"`
-	ServesBreakfast     bool          `json:"servesBreakfast"`
-	ServesLunch         bool          `json:"servesLunch"`
-	ServesDinner        bool          `json:"servesDinner"`
-	ServesBeer          bool          `json:"servesBeer"`
-	AccessibilityOptions AccessInfo   `json:"accessibilityOptions"` 
-	**/
-}
-
-type LocalizedText struct {
-	Text string `json:"text"`
-}
-
-type OpeningHours struct {
-	OpenNow             bool     `json:"openNow"`
-	WeekdayDescriptions []string `json:"weekdayDescriptions"`
-	Periods             []Period `json:"periods"`
-}
-
-type Period struct {
-	Open  TimeOfDay `json:"open"`
-	Close TimeOfDay `json:"close"`
-}
-
-type TimeOfDay struct {
-	Day    int `json:"day"`
-	Hour   int `json:"hour"`
-	Minute int `json:"minute"`
-}
-
-type Photo struct {
-	Name               string        `json:"name"`
-	WidthPx            int           `json:"widthPx"`
-	HeightPx           int           `json:"heightPx"`
-	AuthorAttributions []Attribution `json:"authorAttributions"`
-}
-
-type Review struct {
-	Name              string        `json:"name"`
-	Rating            int           `json:"rating"`
-	Text              LocalizedText `json:"text"`
-	PublishTime       string        `json:"publishTime"`
-	AuthorAttribution Attribution   `json:"authorAttribution"`
-}
-
-type Attribution struct {
-	DisplayName string `json:"displayName"`
-	URI         string `json:"uri"`
-	PhotoURI    string `json:"photoUri"`
-}
-
-type AccessInfo struct {
-	WheelchairAccessibleParking  bool `json:"wheelchairAccessibleParking"`
-	WheelchairAccessibleEntrance bool `json:"wheelchairAccessibleEntrance"`
-	WheelchairAccessibleRestroom bool `json:"wheelchairAccessibleRestroom"`
-	WheelchairAccessibleSeating  bool `json:"wheelchairAccessibleSeating"`
-}
-
-const fieldMask = "places.id,places.displayName,places.formattedAddress," +
-    "places.location,places.types,places.primaryType,places.photos"
-
-func Nearby(point location.Point, locationType string, radiusMeters float64) ([]Place, error) {
+func NearbyGooglePlaces(point location.Point, locationType string, radiusMeters float64) ([]Place, error) {
 	apiKey := os.Getenv("PLACES_KEY")
-
 	reqBody := NearbySearchRequest{
 		IncludedTypes:  []string{locationType},
 		MaxResultCount: 20,
@@ -148,8 +105,7 @@ func Nearby(point location.Point, locationType string, radiusMeters float64) ([]
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Goog-Api-Key", apiKey)
-	fmt.Println("FieldMask:", req.Header.Get("X-Goog-FieldMask"))
-	req.Header.Set("X-Goog-FieldMask", fieldMask)
+	req.Header.Set("X-Goog-FieldMask", "places.id,places.displayName,places.formattedAddress,places.rating,places.location")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -161,11 +117,6 @@ func Nearby(point location.Point, locationType string, radiusMeters float64) ([]
 		b, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, b)
 	}
-	// TEMPORÄR LOGGING - ta bort sen
-	b, _ := io.ReadAll(resp.Body)
-	fmt.Println("RAW GOOGLE RESPONSE:", string(b))
-	resp.Body = io.NopCloser(bytes.NewReader(b))
-	// SLUT LOGGING
 
 	var result PlacesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -173,4 +124,250 @@ func Nearby(point location.Point, locationType string, radiusMeters float64) ([]
 	}
 
 	return result.Places, nil
+}
+
+// ---- Overpass / OSM ----
+
+type OverpassResponse struct {
+	Elements []OverpassElement `json:"elements"`
+}
+
+type OverpassElement struct {
+	Type   string            `json:"type"`
+	ID     int64             `json:"id"`
+	Lat    float64           `json:"lat"`
+	Lon    float64           `json:"lon"`
+	Center *OverpassCenter   `json:"center,omitempty"`
+	Tags   map[string]string `json:"tags"`
+}
+
+type OverpassCenter struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+func NearbyOverPass(point location.Point, locationType string, radiusMeters float64) ([]Place, error) {
+	return NearbyOverPassMulti([]location.Point{point}, locationType, radiusMeters)
+}
+
+func NearbyOverPassMulti(points []location.Point, locationType string, radiusMeters float64) ([]Place, error) {
+	var sb strings.Builder
+	sb.WriteString("[out:json][timeout:25];\n(\n")
+	for _, p := range points {
+		for _, tag := range []string{"amenity", "shop"} {
+			fmt.Fprintf(&sb, "  node[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
+			fmt.Fprintf(&sb, "  way[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
+		}
+	}
+	sb.WriteString(");\nout center 100;\n")
+	query := sb.String()
+
+	var (
+		result  OverpassResponse
+		lastErr error
+	)
+	for _, endpoint := range overpassEndpoints {
+		req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader("data="+query))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("User-Agent", "pvt-app/1.0")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("do request (%s): %w", endpoint, err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("API error %d from %s: %s", resp.StatusCode, endpoint, b)
+			plog.Infof("overpass: %s returned %d, trying next endpoint", endpoint, resp.StatusCode)
+			continue
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("decode response: %w", err)
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+
+	ps := make([]Place, 0, len(result.Elements))
+	for _, el := range result.Elements {
+		name := el.Tags["name"]
+		if name == "" {
+			continue
+		}
+
+		lat, lon := el.Lat, el.Lon
+		if el.Type == "way" && el.Center != nil {
+			lat, lon = el.Center.Lat, el.Center.Lon
+		}
+
+		ps = append(ps, Place{
+			ID:               fmt.Sprintf("%s/%d", el.Type, el.ID),
+			DisplayName:      LocalizedText{Text: name},
+			FormattedAddress: buildOverpassAddress(el.Tags),
+			Location:         LatLng{Latitude: lat, Longitude: lon},
+			OpeningHours:     coalesce(el.Tags, "opening_hours"),
+			Phone:            coalesce(el.Tags, "phone", "contact:phone"),
+			Website:          coalesce(el.Tags, "website", "contact:website"),
+			Cuisine:          el.Tags["cuisine"],
+			OutdoorSeating:   el.Tags["outdoor_seating"] == "yes",
+			Wheelchair:       el.Tags["wheelchair"],
+			DietVegan:        el.Tags["diet:vegan"] == "yes",
+			DietVegetarian:   el.Tags["diet:vegetarian"] == "yes",
+			Wifi:             el.Tags["internet_access"] == "wlan" || el.Tags["wifi"] == "yes",
+			Smoking:          el.Tags["smoking"],
+			Dog:              el.Tags["dog"] == "yes",
+			Takeaway:         el.Tags["takeaway"] == "yes",
+			Organic:          el.Tags["organic"] == "yes",
+			Noise:            el.Tags["noise"],
+			OSMAmenity:       coalesce(el.Tags, "amenity", "shop"),
+		})
+	}
+
+	return ps, nil
+}
+
+func buildOverpassAddress(tags map[string]string) string {
+	var parts []string
+	if street := tags["addr:street"]; street != "" {
+		if num := tags["addr:housenumber"]; num != "" {
+			parts = append(parts, street+" "+num)
+		} else {
+			parts = append(parts, street)
+		}
+	}
+	if city := tags["addr:city"]; city != "" {
+		parts = append(parts, city)
+	}
+	if postcode := tags["addr:postcode"]; postcode != "" {
+		parts = append(parts, postcode)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func coalesce(tags map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v := tags[k]; v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// ComputeHeuristicRating produces a 0–10 quality score for a meeting place
+// using OSM tags and transit data. Higher = better meeting spot.
+func ComputeHeuristicRating(p Place, transitSpread, transitAvg int) float64 {
+	score := 0.0
+
+	// Transit fairness (0–25 pts): lower spread + closer avg = better for everyone
+	if transitSpread != math.MaxInt {
+		score += math.Max(15-float64(transitSpread), 0)
+		score += math.Max(10-float64(transitAvg)*0.5, 0)
+	}
+
+	// Accessibility
+	switch p.Wheelchair {
+	case "yes":
+		score += 12
+	case "limited":
+		score += 5
+	}
+	if p.Wifi {
+		score += 10
+	}
+
+	// Smoking environment
+	switch p.Smoking {
+	case "no":
+		score += 10
+	case "outside":
+		score += 4
+	case "yes":
+		score -= 12
+	case "dedicated_room":
+		score -= 5
+	}
+
+	// Food inclusivity
+	if p.DietVegan {
+		score += 10
+	}
+	if p.DietVegetarian {
+		score += 6
+	}
+	if p.Organic {
+		score += 5
+	}
+
+	// Ambiance & flexibility
+	if p.OutdoorSeating {
+		score += 8
+	}
+	if p.Dog {
+		score += 5
+	}
+	if p.Takeaway {
+		score += 3
+	}
+	if p.Noise == "loud" {
+		score -= 8
+	}
+
+	// Established & well-documented place
+	if p.OpeningHours != "" {
+		score += 5
+	}
+	if p.Website != "" {
+		score += 4
+	}
+	if p.Phone != "" {
+		score += 3
+	}
+	if p.Cuisine != "" {
+		score += 3
+	}
+
+	// Penalty: places that are not appropriate meeting spots
+	switch p.OSMAmenity {
+	case "hospital", "clinic":
+		score -= 30
+	case "school", "college", "university":
+		score -= 25
+	case "police", "prison":
+		score -= 30
+	case "dentist", "doctors":
+		score -= 20
+	case "bank", "atm":
+		score -= 15
+	case "pharmacy":
+		score -= 10
+	case "fuel":
+		score -= 15
+	case "vending_machine":
+		score -= 25
+	}
+
+	return math.Max(0, math.Min(10, score/45.0*10.0))
+}
+
+func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
+	const R = 6371000.0
+	φ1, φ2 := lat1*math.Pi/180, lat2*math.Pi/180
+	Δφ := (lat2 - lat1) * math.Pi / 180
+	Δλ := (lon2 - lon1) * math.Pi / 180
+	a := math.Sin(Δφ/2)*math.Sin(Δφ/2) + math.Cos(φ1)*math.Cos(φ2)*math.Sin(Δλ/2)*math.Sin(Δλ/2)
+	return R * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 }

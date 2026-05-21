@@ -70,14 +70,18 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 		inputStopSets[i] = g.FindNClosestStops(p.Latitude, p.Longitude, nearestStopCandidates)
 		if len(inputStopSets[i]) == 0 {
 			plog.Warning("no stop found for input, falling back to centroid order")
-			candidates, err := places.Nearby(*centroid, locationType, baseSearchRadius)
+			candidates, err := places.NearbyOverPass(*centroid, locationType, baseSearchRadius)
 			if err != nil {
 				plog.Error(err)
 				http.Error(w, "couldn't find nearby places", http.StatusInternalServerError)
 				return
 			}
+			capped := cap5(candidates)
+			for i := range capped {
+				capped[i].Rating = places.ComputeHeuristicRating(capped[i], 0, 0)
+			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(cap5(candidates))
+			json.NewEncoder(w).Encode(capped)
 			return
 		}
 	}
@@ -94,7 +98,7 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		ranked = scoreAndRank(candidates, inputStopSets, g, false)
+		ranked = scoreAndRank(candidates, inputStopSets, g, *centroid, false)
 
 		bestSpread := math.MaxInt
 		if len(ranked) > 0 {
@@ -112,7 +116,7 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 	// Final SL API validation pass if spread is still above threshold
 	if len(ranked) > 0 && ranked[0].spread > spreadThreshold && ranked[0].spread < math.MaxInt {
 		plog.Infof("spread %d min after radius expansion, retrying with SL API validation", ranked[0].spread)
-		validated := scoreAndRank(candidates, inputStopSets, g, true)
+		validated := scoreAndRank(candidates, inputStopSets, g, *centroid, true)
 		if len(validated) > 0 && validated[0].spread < ranked[0].spread {
 			ranked = validated
 		}
@@ -123,8 +127,10 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 		if i >= maxResults || s.spread == math.MaxInt {
 			break
 		}
-		plog.Infof("ranked #%d: %s (score %d, avg %d min, spread %d min)", i+1, s.place.DisplayName.Text, s.avg+s.spread, s.avg, s.spread)
-		result = append(result, s.place)
+		p := s.place
+		p.Rating = places.ComputeHeuristicRating(p, s.spread, s.avg)
+		plog.Infof("ranked #%d: %s (transit %d min, rating %.1f)", i+1, p.DisplayName.Text, s.avg+s.spread, p.Rating)
+		result = append(result, p)
 	}
 
 	if len(result) == 0 {
@@ -142,7 +148,7 @@ type scoredPlace struct {
 	avg    int
 }
 
-func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, validate bool) []scoredPlace {
+func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, centroid location.Point, validate bool) []scoredPlace {
 	travel := g.TravelMinutes
 	if validate {
 		travel = g.TravelMinutesValidated
@@ -200,7 +206,14 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 		if sj.spread == math.MaxInt {
 			return true
 		}
-		return si.avg+si.spread < sj.avg+sj.spread
+		scoreI, scoreJ := si.avg+si.spread, sj.avg+sj.spread
+		if scoreI != scoreJ {
+			return scoreI < scoreJ
+		}
+		// Tiebreak: prefer the place closest to the centroid.
+		distI := approxDistSq(centroid.Latitude, centroid.Longitude, si.place.Location.Latitude, si.place.Location.Longitude)
+		distJ := approxDistSq(centroid.Latitude, centroid.Longitude, sj.place.Location.Latitude, sj.place.Location.Longitude)
+		return distI < distJ
 	})
 	return scored
 }
@@ -220,18 +233,16 @@ func searchGrid(center location.Point, locationType string, radius float64) ([]p
 		{Latitude: center.Latitude, Longitude: center.Longitude - dLon},
 	}
 
+	results, err := places.NearbyOverPassMulti(searchPoints, locationType, radius)
+	if err != nil {
+		return nil, err
+	}
 	seen := make(map[string]bool)
 	var merged []places.Place
-	for _, p := range searchPoints {
-		results, err := places.Nearby(p, locationType, radius)
-		if err != nil {
-			return nil, err
-		}
-		for _, place := range results {
-			if !seen[place.ID] {
-				seen[place.ID] = true
-				merged = append(merged, place)
-			}
+	for _, place := range results {
+		if !seen[place.ID] {
+			seen[place.ID] = true
+			merged = append(merged, place)
 		}
 	}
 	plog.Infof("grid search: %d unique candidates from 5 points at radius %.0f m", len(merged), radius)
@@ -243,4 +254,11 @@ func cap5(ps []places.Place) []places.Place {
 		return ps
 	}
 	return ps[:maxResults]
+}
+
+// approxDistSq returns squared lat/lon distance (no Haversine needed for comparison only).
+func approxDistSq(lat1, lon1, lat2, lon2 float64) float64 {
+	dLat := lat1 - lat2
+	dLon := lon1 - lon2
+	return dLat*dLat + dLon*dLon
 }
