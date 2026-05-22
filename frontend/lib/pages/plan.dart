@@ -1011,7 +1011,8 @@ class _PlanPageState extends State<PlanPage> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      _mapController.move(LatLng(lat, lng), 15);
+                      //-0.0035 är offset för att platsen ska hamna i mitten av vyn
+                      _mapController.move(LatLng(lat-0.0035, lng), 15);
                     },
                     icon: const Icon(
                       Icons.map_outlined,

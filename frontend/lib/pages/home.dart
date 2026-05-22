@@ -154,7 +154,7 @@ class _HomePageState extends State<HomePage> {
                         child: TextField(
                           controller: controller,
                           decoration: InputDecoration(
-                            hintText: 'Sök adress...',
+                            hintText: 'Search...',
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
