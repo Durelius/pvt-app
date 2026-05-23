@@ -39,6 +39,7 @@ class _PlanPageState extends State<PlanPage> {
 
   bool _hasCurrentLocation = false;
   bool _hasMyAddress = false;
+  bool _isFocused = false;
   final String _homeAddressName = 'Saved home address';
   final homeAddressBox = Hive.box('homeAddress');
 
@@ -67,6 +68,11 @@ class _PlanPageState extends State<PlanPage> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _resolveCurrentAddress(lat, lng),
     );*/
+    _focusNode.addListener(() {
+      setState(() {
+        _isFocused = _focusNode.hasFocus;
+      });
+    });
   }
 
   @override
@@ -254,11 +260,14 @@ class _PlanPageState extends State<PlanPage> {
                 ],
                 Expanded(
                   child: TextField(
+                    cursorColor: Colors.white,
+                    cursorWidth: 2,
+                    showCursor: true,
                     controller: _controller,
                     focusNode: _focusNode,
                     style: const TextStyle(color: Colors.white, fontSize: 15),
                     decoration: InputDecoration(
-                      hintText: 'Add an address...',
+                    hintText: _focusNode.hasFocus ? '' : 'Add an address...',
                       hintStyle: TextStyle(
                         color: Colors.white.withValues(alpha: 0.65),
                         fontSize: 15,
