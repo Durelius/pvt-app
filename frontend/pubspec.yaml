@@ -87,8 +87,8 @@ flutter:
   uses-material-design: true
   assets:
     - .env
-    - assets/logo.png
     - assets/mitten_logo.png
+   # - assets/mitten_logo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -122,11 +122,11 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 flutter_native_splash:
   color: "#FFFFFF"
-  image: assets/logo.png
+  image: assets/mitten_logo.png
 
 flutter_icons:
   android: true
   ios: true
-  image_path: assets/logo.png
+  image_path: assets/mitten_logo.png
   adaptive_icon_background: "#63519F"
-  adaptive_icon_foreground: assets/logo.png
+  adaptive_icon_foreground: assets/mitten_logo.png
