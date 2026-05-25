@@ -161,7 +161,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     maxRadius: 75,
                     child: FittedBox(
                       fit: BoxFit.contain,
-                      child: Icon(Icons.person, color: Color(0xFF4F378A)),
+                      child: Icon(Icons.person, color: Color(0xFF4F378A), size: 120),
                     ),
                   ),
                   const SizedBox(height: 10),
