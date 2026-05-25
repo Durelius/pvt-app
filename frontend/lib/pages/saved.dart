@@ -187,32 +187,44 @@ class _SearchCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+
             SizedBox(
-              height: 60,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  ...List.generate(addresses.length.clamp(0, 3), (i) {
-                    final offset =
-                        (i - (addresses.length.clamp(0, 3) - 1) / 2) * 18.0;
-                    return Transform.translate(
-                      offset: Offset(offset, 0),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: kPurple, width: 2),
+                  height: 60,
+                  child: isSavedGroup
+                      ? Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: kPurple, width: 2),
+                          ),
+                          child: const Icon(Icons.groups, color: Colors.white, size: 18),
+                        )
+                      : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            ...List.generate(addresses.length.clamp(0, 3), (i) {
+                              final offset =
+                                  (i - (addresses.length.clamp(0, 3) - 1) / 2) * 18.0;
+                              return Transform.translate(
+                                offset: Offset(offset, 0),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: kPurple, width: 2),
+                                  ),
+                                  child: const Icon(Icons.location_on,
+                                      color: Colors.white, size: 18),
+                                ),
+                              );
+                            }),
+                          ],
                         ),
-                        child: const Icon(Icons.location_on,
-                            color: Colors.white, size: 18),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
+                ),
             const SizedBox(height: 8),
             Text(label,
                 style: const TextStyle(
