@@ -251,6 +251,7 @@ class _ProfilePageState extends State<ProfilePage> {
               label: const Text('Use current location', style: TextStyle(color: _kPurple, fontSize: 13)),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: _kPurple),
+                minimumSize: const Size(170, 48), 
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
               ),

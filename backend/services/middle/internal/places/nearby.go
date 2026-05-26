@@ -1,6 +1,7 @@
 package places
 
 import (
+	"net/url"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -214,10 +215,17 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 			lat, lon = el.Center.Lat, el.Center.Lon
 		}
 
+		address := buildOverpassAddress(el.Tags)
+		fmt.Printf("OSM address for %s: '%s'\n", name, address)
+		if address == "" {
+			address = reverseGeocodeMapbox(lat, lon)
+			fmt.Printf("Mapbox address for %s: '%s'\n", name, address)
+		}
+
 		ps = append(ps, Place{
 			ID:               fmt.Sprintf("%s/%d", el.Type, el.ID),
 			DisplayName:      LocalizedText{Text: name},
-			FormattedAddress: buildOverpassAddress(el.Tags),
+			FormattedAddress: address,
 			Location:         LatLng{Latitude: lat, Longitude: lon},
 			OpeningHours:     coalesce(el.Tags, "opening_hours"),
 			Phone:            coalesce(el.Tags, "phone", "contact:phone"),
@@ -370,4 +378,62 @@ func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 	Δλ := (lon2 - lon1) * math.Pi / 180
 	a := math.Sin(Δφ/2)*math.Sin(Δφ/2) + math.Cos(φ1)*math.Cos(φ2)*math.Sin(Δλ/2)*math.Sin(Δλ/2)
 	return R * 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+}
+
+// Mapbox för adresser
+func GeocodeAddress(query string) error {
+	token := os.Getenv("MAPBOX_TOKEN")
+
+	url := fmt.Sprintf(
+		"https://api.mapbox.com/geocoding/v5/mapbox.places/%s.json?access_token=%s&limit=1",
+		url.QueryEscape(query),
+		token,
+	)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	fmt.Println(string(body))
+	return nil
+}
+
+func reverseGeocodeMapbox(lat, lon float64) string {
+	token := os.Getenv("MAPBOX_TOKEN")
+	if token == "" {
+		return ""
+	}
+
+	u := fmt.Sprintf(
+		"https://api.mapbox.com/geocoding/v5/mapbox.places/%f,%f.json?access_token=%s&limit=1",
+		lon,
+		lat,
+		token,
+	)
+
+	resp, err := http.Get(u)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Features []struct {
+			PlaceName string `json:"place_name"`
+		} `json:"features"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return ""
+	}
+
+	if len(result.Features) == 0 {
+		return ""
+	}
+
+	return result.Features[0].PlaceName
 }
