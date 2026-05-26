@@ -26,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController controller = TextEditingController();
   final MapController mapController = MapController();
   final MapboxGeocodingService geocoding = MapboxGeocodingService();
+  final FocusNode _focusNode = FocusNode();
   List<Address> suggestions = [];
   List<FriendUser> userSuggestions = [];
   String searchTerm = "";
@@ -37,6 +38,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    _focusNode.addListener(() {
+      setState(() {});
+    });
     _refreshPendingCount();
   }
 
@@ -153,8 +157,17 @@ class _HomePageState extends State<HomePage> {
                       Expanded(
                         child: TextField(
                           controller: controller,
+                          focusNode: _focusNode,
+                          cursorColor: Colors.black,
+                          cursorWidth: 2,
+                          showCursor: true,
                           decoration: InputDecoration(
                             hintText: 'Search...',
+                            hintStyle: TextStyle(
+                              color: _focusNode.hasFocus
+                                  ? Colors.transparent
+                                  : Colors.black,
+                            ),
                             filled: true,
                             fillColor: Colors.white,
                             border: OutlineInputBorder(
