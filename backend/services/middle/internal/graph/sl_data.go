@@ -3,6 +3,7 @@ package graph
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -11,14 +12,13 @@ import (
 )
 
 func (graph *SLGraph) initFromDir(dir string) error {
-	paths := [5]string{
-		dir + "/sl_agency.csv",
-		dir + "/sl_routes.csv",
-		dir + "/sl_stop_times.csv",
-		dir + "/sl_stops.csv",
-		dir + "/sl_trips.csv",
-	}
-	return graph.initFromPaths(paths[0], paths[1], paths[2], paths[3], paths[4])
+	return graph.initFromPaths(
+		dir+"/sl_agency.csv",
+		dir+"/sl_routes.csv",
+		dir,
+		dir+"/sl_stops.csv",
+		dir+"/sl_trips.csv",
+	)
 }
 
 func (graph *SLGraph) init() error {
@@ -29,8 +29,10 @@ func (graph *SLGraph) init() error {
 	return graph.initFromDir(dir)
 }
 
-func (graph *SLGraph) initFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath string) error {
-	_, _, stopTimes, stops, _, err := loadFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath)
+// stopTimesArg is either a directory (loads sl_stop_times_part*.csv from it)
+// or a direct file path (used in tests).
+func (graph *SLGraph) initFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath string) error {
+	_, _, stopTimes, stops, _, err := loadFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath)
 	if err != nil {
 		return err
 	}
@@ -115,7 +117,7 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 	return nil
 }
 
-func loadFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath string) ([]*Agency, []*Routes, []*StopTimes, []*Stop, []*Trips, error) {
+func loadFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath string) ([]*Agency, []*Routes, []*StopTimes, []*Stop, []*Trips, error) {
 	agencies, err := loadCSV[Agency](agencyPath)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -124,7 +126,7 @@ func loadFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath s
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	stopTimes, err := loadCSV[StopTimes](stopTimesPath)
+	stopTimes, err := loadStopTimes(stopTimesArg)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -137,6 +139,34 @@ func loadFromPaths(agencyPath, routesPath, stopTimesPath, stopsPath, tripsPath s
 		return nil, nil, nil, nil, nil, err
 	}
 	return agencies, routes, stopTimes, stops, trips, nil
+}
+
+// loadStopTimes accepts either a directory (globs sl_stop_times_part*.csv)
+// or a direct file path.
+func loadStopTimes(arg string) ([]*StopTimes, error) {
+	info, err := os.Stat(arg)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	if info.IsDir() {
+		paths, err = filepath.Glob(filepath.Join(arg, "sl_stop_times_part*.csv"))
+		if err != nil {
+			return nil, err
+		}
+		sort.Strings(paths)
+	} else {
+		paths = []string{arg}
+	}
+	var all []*StopTimes
+	for _, p := range paths {
+		chunk, err := loadCSV[StopTimes](p)
+		if err != nil {
+			return nil, fmt.Errorf("loading %s: %w", p, err)
+		}
+		all = append(all, chunk...)
+	}
+	return all, nil
 }
 
 func loadCSV[T any](path string) ([]*T, error) {
