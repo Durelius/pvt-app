@@ -14,6 +14,7 @@ import 'pages/home_address_setup.dart';
 import 'pages/login.dart';
 import 'pages/plan.dart';
 import 'pages/saved.dart';
+import 'pages/splash.dart';
 
 //Imports for google sign in and location services
 import 'package:flutter/foundation.dart';
@@ -33,9 +34,6 @@ void main() async {
         ? '169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com'
         : null,
   );
-  if (kIsWeb) {
-    GoogleSignIn.instance.attemptLightweightAuthentication();
-  }
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -81,9 +79,9 @@ class MyApp extends StatelessWidget {
         fontFamily: 'SF Pro Display',
       ),
       routes: {
-        '/': (_) => const LoginScreen(),
-        '/main': (_) => const MainShell(),
+        '/': (_) => const SplashScreen(),
         '/login': (_) => const LoginScreen(),
+        '/main': (_) => const MainShell(),
         '/setup': (_) => const HomeAddressSetupPage(),
       },
       initialRoute: '/',
