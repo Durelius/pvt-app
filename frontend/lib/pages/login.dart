@@ -136,10 +136,13 @@ class LoginScreen extends StatelessWidget {
     if (!context.mounted) return;
     try {
       final user = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      Hive.box('userProfile').put('name', (user['name'] as String?) ?? '');
+      Hive.box('userProfile').put('picture', (user['picture'] as String?) ?? '');
+
       final homeAddressName = (user['home_address_name'] as String?) ?? '';
       if (homeAddressName.isNotEmpty) {
-        final box = Hive.box('homeAddress');
-        box.put('homeAddress', jsonEncode({
+        Hive.box('homeAddress').put('homeAddress', jsonEncode({
           'name': homeAddressName,
           'lat': user['home_address_lat'] ?? 0.0,
           'lon': user['home_address_lon'] ?? 0.0,

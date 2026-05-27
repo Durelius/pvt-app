@@ -15,6 +15,7 @@ class FriendsPage extends StatefulWidget {
 class _FriendsPageState extends State<FriendsPage> {
   List<FriendUser> _friends = [];
   List<PendingRequest> _pending = [];
+  List<FriendUser> _sent = [];
   bool _loading = true;
 
   @override
@@ -29,10 +30,12 @@ class _FriendsPageState extends State<FriendsPage> {
       FriendsService.getFriends(),
       FriendsService.getPendingRequests(),
       FriendsService.getNotifications(),
+      FriendsService.getSentRequests(),
     ]);
     final friends = results[0] as List<FriendUser>;
     final pending = results[1] as List<PendingRequest>;
     final notifs = results[2] as List<AppNotification>;
+    final sent = results[3] as List<FriendUser>;
 
     if (pending.isNotEmpty) {
       notifications.show(
@@ -65,6 +68,7 @@ class _FriendsPageState extends State<FriendsPage> {
       setState(() {
         _friends = friends;
         _pending = pending;
+        _sent = sent;
         _loading = false;
       });
     }
@@ -134,6 +138,21 @@ class _FriendsPageState extends State<FriendsPage> {
                         )),
                     const SizedBox(height: 20),
                   ],
+                  if (_sent.isNotEmpty) ...[
+                    const Text('Pending',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ..._sent.map((u) => Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            leading: _Avatar(name: u.name, pictureUrl: u.picture),
+                            title: Text(u.name),
+                            subtitle: const Text('Waiting for response...'),
+                          ),
+                        )),
+                    const SizedBox(height: 20),
+                  ],
                   const Text('Friends',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
@@ -172,7 +191,7 @@ class _PendingCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: _Avatar(name: request.sender.name),
+        leading: _Avatar(name: request.sender.name, pictureUrl: request.sender.picture),
         title: Text(request.sender.name),
         subtitle: const Text('wants to be your friend'),
         trailing: Row(
@@ -206,7 +225,7 @@ class _FriendTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: _Avatar(name: friend.name),
+        leading: _Avatar(name: friend.name, pictureUrl: friend.picture),
         title: Text(friend.name),
         trailing: IconButton(
           icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
@@ -220,15 +239,20 @@ class _FriendTile extends StatelessWidget {
 
 class _Avatar extends StatelessWidget {
   final String name;
-  const _Avatar({required this.name});
+  final String pictureUrl;
+
+  const _Avatar({required this.name, this.pictureUrl = ''});
 
   @override
   Widget build(BuildContext context) {
     final initials = name.trim().isEmpty
         ? '?'
         : name.trim().split(' ').map((w) => w[0]).take(2).join().toUpperCase();
+    final hasPhoto = pictureUrl.isNotEmpty;
     return CircleAvatar(
       backgroundColor: kPurpleFriends,
+      foregroundImage: hasPhoto ? NetworkImage(pictureUrl) : null,
+      onForegroundImageError: hasPhoto ? (e, s) {} : null,
       child: Text(initials, style: const TextStyle(color: Colors.white, fontSize: 14)),
     );
   }

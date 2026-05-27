@@ -25,6 +25,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final MapboxGeocodingService _geocoding = MapboxGeocodingService();
   final LocationService _locationService = LocationService();
   final _homeAddressBox = Hive.box('homeAddress');
+  final _profileBox = Hive.box('userProfile');
 
   List<Address> _suggestions = [];
   Address? _picked;
@@ -156,16 +157,15 @@ class _ProfilePageState extends State<ProfilePage> {
             Center(
               child: Column(
                 children: [
-                  const CircleAvatar(
-                    backgroundColor: Color(0xFFEADDFF),
-                    maxRadius: 75,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Icon(Icons.person, color: Color(0xFF4F378A), size: 120),
-                    ),
+                  _ProfileAvatar(
+                    pictureUrl: (_profileBox.get('picture') as String?) ?? '',
+                    radius: 75,
                   ),
                   const SizedBox(height: 10),
-                  const Text('My Profile', style: TextStyle(color: Color(0xFF4F378A))),
+                  Text(
+                    (_profileBox.get('name') as String?) ?? 'My Profile',
+                    style: const TextStyle(color: Color(0xFF4F378A), fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ),
@@ -216,7 +216,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _suggestions.length,
-                  separatorBuilder: (_, __) => Divider(
+                  separatorBuilder: (context, i) => Divider(
                     height: 1,
                     color: Colors.white.withValues(alpha: 0.15),
                     indent: 44,
@@ -282,6 +282,25 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  final String pictureUrl;
+  final double radius;
+
+  const _ProfileAvatar({required this.pictureUrl, required this.radius});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = pictureUrl.isNotEmpty;
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: const Color(0xFFEADDFF),
+      foregroundImage: hasPhoto ? NetworkImage(pictureUrl) : null,
+      onForegroundImageError: hasPhoto ? (e, s) {} : null,
+      child: Icon(Icons.person, color: const Color(0xFF4F378A), size: radius),
     );
   }
 }

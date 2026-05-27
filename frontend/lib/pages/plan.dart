@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_debouncer/flutter_debouncer.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:mitten/location_service/location_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -38,6 +37,8 @@ class _PlanPageState extends State<PlanPage> {
   final MapController _mapController = MapController();
 
   bool _hasCurrentLocation = false;
+  bool _isLoadingLocation = false;
+  AppLocation? _fetchedCurrentLocation;
   bool _hasMyAddress = false;
   bool _isFocused = false;
   final String _homeAddressName = 'Saved home address';
@@ -83,17 +84,13 @@ class _PlanPageState extends State<PlanPage> {
   }
 
   Future<void> _resolveCurrentAddress(double lat, double lng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) return;
-      final p = placemarks.first;
-      final label = [
-        p.street,
-        p.locality,
-        p.country,
-      ].where((s) => s != null && s.isNotEmpty).join(', ');
-      setState(() => _items.add(Address(name: label, lat: lat, lon: lng)));
-    } catch (_) {}
+    final address = await _geocoding.reverseGeocode(lat, lng);
+    if (!mounted) return;
+    setState(() => _items.add(Address(
+      name: address?.name ?? '$lat, $lng',
+      lat: lat,
+      lon: lng,
+    )));
   }
 
   Future<void> _loadFriends() async {
@@ -384,17 +381,34 @@ class _PlanPageState extends State<PlanPage> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _hasCurrentLocation
+                  onPressed: (_hasCurrentLocation || _isLoadingLocation)
                       ? null
-                      : () {
-                          final lat = widget.currentLocation?.latitude;
-                          final lng = widget.currentLocation?.longitude;
-                          if (lat != null && lng != null) {
-                            setState(() => _hasCurrentLocation = true);
-                            _resolveCurrentAddress(lat, lng);
+                      : () async {
+                          setState(() => _isLoadingLocation = true);
+                          try {
+                            final loc = await LocationService().getCurrentLocation();
+                            if (!mounted) return;
+                            setState(() {
+                              _fetchedCurrentLocation = loc;
+                              _hasCurrentLocation = true;
+                              _isLoadingLocation = false;
+                            });
+                            _resolveCurrentAddress(loc.latitude, loc.longitude);
+                          } catch (e) {
+                            if (!mounted) return;
+                            setState(() => _isLoadingLocation = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
                           }
                         },
-                  icon: const Icon(Icons.my_location, size: 16, color: kPurple),
+                  icon: _isLoadingLocation
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: kPurple),
+                        )
+                      : const Icon(Icons.my_location, size: 16, color: kPurple),
                   label: const Text(
                     'Use current location',
                     style: TextStyle(color: kPurple, fontSize: 13),
@@ -511,10 +525,10 @@ class _PlanPageState extends State<PlanPage> {
                           if (removed.name == _homeAddressName) {
                             _hasMyAddress = false;
                           }
-                          final lat = widget.currentLocation?.latitude;
-                          final lng = widget.currentLocation?.longitude;
-                          if (removed.lat == lat && removed.lon == lng) {
+                          if (removed.lat == _fetchedCurrentLocation?.latitude &&
+                              removed.lon == _fetchedCurrentLocation?.longitude) {
                             _hasCurrentLocation = false;
+                            _fetchedCurrentLocation = null;
                           }
                           _items.removeAt(i);
                         }),
