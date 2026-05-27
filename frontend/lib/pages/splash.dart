@@ -83,6 +83,10 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
     try {
       final user = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      Hive.box('userProfile').put('name', (user['name'] as String?) ?? '');
+      Hive.box('userProfile').put('picture', (user['picture'] as String?) ?? '');
+
       final homeAddressName = (user['home_address_name'] as String?) ?? '';
       if (homeAddressName.isNotEmpty) {
         Hive.box('homeAddress').put('homeAddress', jsonEncode({
