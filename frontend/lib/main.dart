@@ -115,8 +115,12 @@ class _MainShellState extends State<MainShell> {
   }
 
   Future<void> _requestLocation() async {
-    final loc = await _locationService.getCurrentLocation();
-    if (mounted) setState(() => _currentLocation = loc);
+    try {
+      final loc = await _locationService.getCurrentLocation();
+      if (mounted) setState(() => _currentLocation = loc);
+    } catch (_) {
+      // Location unavailable at startup — user can request it manually on the plan page.
+    }
   }
 
   void _openPlanWithAddresses(List<Address> addresses) {
