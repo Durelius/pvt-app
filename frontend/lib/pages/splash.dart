@@ -47,8 +47,8 @@ class _SplashScreenState extends State<SplashScreen> {
       onError: (_) => _goToLogin(),
     );
 
-    // Give the silent auth up to 3 seconds before giving up.
-    _timer = Timer(const Duration(seconds: 3), _goToLogin);
+    // If no cached session exists the event never fires — go straight to login.
+    _timer = Timer(const Duration(milliseconds: 300), _goToLogin);
 
     GoogleSignIn.instance.attemptLightweightAuthentication();
   }
@@ -111,28 +111,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MittenLogo(size: 200),
-            SizedBox(height: 24),
-            Text(
-              'Mitten',
-              style: TextStyle(
-                color: kPurple,
-                fontSize: 52,
-                fontWeight: FontWeight.bold,
-                fontStyle: FontStyle.italic,
-                letterSpacing: -1,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const Scaffold(backgroundColor: Colors.white);
   }
 }
 
