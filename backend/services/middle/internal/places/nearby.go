@@ -16,7 +16,6 @@ import (
 )
 
 
-
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
 
 // Overpass public instances tried in order on failure.

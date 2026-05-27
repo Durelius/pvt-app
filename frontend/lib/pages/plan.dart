@@ -828,6 +828,11 @@ class _PlanPageState extends State<PlanPage> {
                   ),
                 ],
               ),
+              // efter de befintliga Row(children: [openBadge, cuisineChip, priceLevel])
+            const SizedBox(height: 8),
+            _buildAmenities(place),
+            const SizedBox(height: 8),
+            // befintlig address-rad
             ],
           ),
         ),
@@ -950,6 +955,9 @@ class _PlanPageState extends State<PlanPage> {
                   ),
                 ],
               ),
+              // efter stjärn-raden + SizedBox(height: 16)
+              const SizedBox(height: 16),
+              _buildAmenities(place),
               const SizedBox(height: 16),
 
               // Address
@@ -1094,6 +1102,143 @@ class _PlanPageState extends State<PlanPage> {
       ],
     );
   }
+  // ---- Lägg till längst ner i _PlanPageState, bland hjälpmetoderna ----
+
+  Widget _buildAmenities(Map<String, dynamic> place) {
+    final chips = <_AmenityChip>[];
+
+    // Wheelchair
+    final wheelchair = place['wheelchair'] as String?;
+    if (wheelchair == 'yes') {
+      chips.add(_AmenityChip(icon: Icons.accessible, label: 'Wheelchair access', style: _ChipStyle.yes));
+    } else if (wheelchair == 'limited') {
+      chips.add(_AmenityChip(icon: Icons.accessible_forward, label: 'Limited access', style: _ChipStyle.neutral));
+    }
+
+    // WiFi
+    if (place['wifi'] == true) {
+      chips.add(_AmenityChip(icon: Icons.wifi, label: 'WiFi', style: _ChipStyle.yes));
+    }
+
+    // Smoking
+    final smoking = place['smoking'] as String?;
+    if (smoking == 'no') {
+      chips.add(_AmenityChip(icon: Icons.smoke_free, label: 'No smoking', style: _ChipStyle.no));
+    } else if (smoking == 'outside') {
+      chips.add(_AmenityChip(icon: Icons.smoking_rooms, label: 'Smoking outside', style: _ChipStyle.neutral));
+    } else if (smoking == 'yes') {
+      chips.add(_AmenityChip(icon: Icons.smoking_rooms, label: 'Smoking allowed', style: _ChipStyle.bad));
+    }
+
+    // Outdoor seating
+    if (place['outdoorSeating'] == true) {
+      chips.add(_AmenityChip(icon: Icons.deck, label: 'Outdoor seating', style: _ChipStyle.yes));
+    }
+
+    // Dog friendly
+    if (place['dogFriendly'] == true) {
+      chips.add(_AmenityChip(icon: Icons.pets, label: 'Dog friendly', style: _ChipStyle.yes));
+    }
+
+    // Diet
+    if (place['dietVegan'] == true) {
+      chips.add(_AmenityChip(icon: Icons.eco, label: 'Vegan options', style: _ChipStyle.yes));
+    }
+    if (place['dietVegetarian'] == true) {
+      chips.add(_AmenityChip(icon: Icons.spa, label: 'Vegetarian options', style: _ChipStyle.yes));
+    }
+
+    // Organic
+    if (place['organic'] == true) {
+      chips.add(_AmenityChip(icon: Icons.grass, label: 'Organic', style: _ChipStyle.yes));
+    }
+
+    // Takeaway
+    if (place['takeaway'] == true) {
+      chips.add(_AmenityChip(icon: Icons.takeout_dining, label: 'Takeaway', style: _ChipStyle.neutral));
+    }
+
+    // Cuisine
+    final cuisine = (place['cuisine'] as String?)?.split(';').first;
+    if (cuisine != null && cuisine.isNotEmpty) {
+      chips.add(_AmenityChip(
+        icon: Icons.restaurant,
+        label: cuisine[0].toUpperCase() + cuisine.substring(1),
+        style: _ChipStyle.info,
+      ));
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.zero,
+      child: Row(
+        children: chips
+            .map((c) => Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: _buildAmenityChip(c),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildAmenityChip(_AmenityChip chip) {
+    Color bg, borderColor, textColor, iconColor;
+    switch (chip.style) {
+      case _ChipStyle.yes:
+        bg = const Color(0xFFEAF3DE);
+        borderColor = const Color(0xFF639922);
+        textColor = const Color(0xFF3B6D11);
+        iconColor = const Color(0xFF3B6D11);
+        break;
+      case _ChipStyle.no:
+        bg = const Color(0xFFFCEBEB);
+        borderColor = const Color(0xFFE24B4A);
+        textColor = const Color(0xFFA32D2D);
+        iconColor = const Color(0xFFA32D2D);
+        break;
+      case _ChipStyle.bad:
+        bg = const Color(0xFFFAECE7);
+        borderColor = const Color(0xFFD85A30);
+        textColor = const Color(0xFF993C1D);
+        iconColor = const Color(0xFF993C1D);
+        break;
+      case _ChipStyle.info:
+        bg = const Color(0xFFE6F1FB);
+        borderColor = const Color(0xFF378ADD);
+        textColor = const Color(0xFF185FA5);
+        iconColor = const Color(0xFF185FA5);
+        break;
+      case _ChipStyle.neutral:
+      default:
+        bg = const Color(0xFFF1EFE8);
+        borderColor = const Color(0xFFB4B2A9);
+        textColor = const Color(0xFF5F5E5A);
+        iconColor = const Color(0xFF5F5E5A);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderColor, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(chip.icon, size: 13, color: iconColor),
+          const SizedBox(width: 5),
+          Text(
+            chip.label,
+            style: TextStyle(fontSize: 12, color: textColor, height: 1),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class RecentSearch {
@@ -1110,4 +1255,13 @@ List<Address> decodeItems(List saved) {
   return saved
       .map((e) => Address(name: e['name'], lat: e['lat'], lon: e['lon']))
       .toList();
+}
+
+enum _ChipStyle { yes, no, bad, info, neutral }
+
+class _AmenityChip {
+  final IconData icon;
+  final String label;
+  final _ChipStyle style;
+  const _AmenityChip({required this.icon, required this.label, required this.style});
 }
