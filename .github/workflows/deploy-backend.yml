@@ -90,8 +90,9 @@ jobs:
       - name: Write .env to server
         env:
           PLACES_KEY: ${{ secrets.PLACES_KEY }}
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
         run: |
-          printf "PLACES_KEY=%s\n" "$PLACES_KEY" | \
+          printf "PLACES_KEY=%s\nMAPBOX_ACCESS_TOKEN=%s\n" "$PLACES_KEY" "$MAPBOX_ACCESS_TOKEN" | \
             ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP \
             "cat > /var/www/pvt-backend/.env"
 
