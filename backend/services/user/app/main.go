@@ -27,8 +27,12 @@ func main() {
 	authRouter.HandleFunc("/friends/request", controller.SendRequestHandler).Methods("POST")
 	authRouter.HandleFunc("/friends", controller.GetFriendsHandler).Methods("GET")
 	authRouter.HandleFunc("/friends/pending", controller.GetPendingHandler).Methods("GET")
+	authRouter.HandleFunc("/friends/sent", controller.GetSentHandler).Methods("GET")
 	authRouter.HandleFunc("/friends/{id}/accept", controller.AcceptHandler).Methods("PUT")
 	authRouter.HandleFunc("/friends/{id}/decline", controller.DeclineHandler).Methods("PUT")
+	authRouter.HandleFunc("/friends/{id}", controller.RemoveFriendHandler).Methods("DELETE")
+	authRouter.HandleFunc("/notifications", controller.GetNotificationsHandler).Methods("GET")
+	authRouter.HandleFunc("/notifications/read", controller.MarkNotificationsReadHandler).Methods("PUT")
 	authRouter.HandleFunc("/home-address", controller.SetHomeAddressHandler).Methods("PUT")
 
 	standardrouter.Start(router)

@@ -32,6 +32,16 @@ class FriendUser {
       );
 }
 
+class AppNotification {
+  final int id;
+  final String message;
+
+  AppNotification({required this.id, required this.message});
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) =>
+      AppNotification(id: j['id'], message: j['message']);
+}
+
 class PendingRequest {
   final int id;
   final FriendUser sender;
@@ -78,6 +88,32 @@ class FriendsService {
     if (res.statusCode != 200) return [];
     final List<dynamic> data = jsonDecode(res.body);
     return data.map((e) => PendingRequest.fromJson(e)).toList();
+  }
+
+  static Future<List<FriendUser>> getSentRequests() async {
+    final res = await http.get(Uri.parse('$_base/friends/sent'), headers: _headers);
+    if (res.statusCode != 200) return [];
+    final List<dynamic> data = jsonDecode(res.body);
+    return data.map((e) => FriendUser.fromJson(e)).toList();
+  }
+
+  static Future<bool> removeFriend(int friendId) async {
+    final res = await http.delete(
+      Uri.parse('$_base/friends/$friendId'),
+      headers: _headers,
+    );
+    return res.statusCode == 204;
+  }
+
+  static Future<List<AppNotification>> getNotifications() async {
+    final res = await http.get(Uri.parse('$_base/notifications'), headers: _headers);
+    if (res.statusCode != 200) return [];
+    final List<dynamic> data = jsonDecode(res.body);
+    return data.map((e) => AppNotification.fromJson(e)).toList();
+  }
+
+  static Future<void> markNotificationsRead() async {
+    await http.put(Uri.parse('$_base/notifications/read'), headers: _headers);
   }
 
   static Future<bool> acceptRequest(int id) async {

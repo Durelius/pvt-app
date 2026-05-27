@@ -99,6 +99,35 @@ func GetPendingRequests(db *sqlx.DB, userID int) ([]models.PendingRequest, error
 	return requests, nil
 }
 
+func RemoveFriend(db *sqlx.DB, userID, friendID int) error {
+	_, err := db.Exec(`
+		DELETE FROM friendships
+		WHERE status = 'accepted'
+		  AND (
+		    (sender_id = $1 AND receiver_id = $2) OR
+		    (sender_id = $2 AND receiver_id = $1)
+		  )
+	`, userID, friendID)
+	return err
+}
+
+func GetSentRequests(db *sqlx.DB, userID int) ([]models.FriendUser, error) {
+	var users []models.FriendUser
+	err := db.Select(&users, `
+		SELECT u.id, u.name, u.picture,
+		       COALESCE(u.home_address_name, '') AS home_address_name,
+		       COALESCE(u.home_address_lat, 0)  AS home_address_lat,
+		       COALESCE(u.home_address_lon, 0)  AS home_address_lon
+		FROM users u
+		JOIN friendships f ON f.receiver_id = u.id
+		WHERE f.sender_id = $1 AND f.status = 'pending'
+	`, userID)
+	if users == nil {
+		users = []models.FriendUser{}
+	}
+	return users, err
+}
+
 func RespondToRequest(db *sqlx.DB, friendshipID, receiverID int, status string) error {
 	_, err := db.Exec(`
 		UPDATE friendships SET status = $1, updated_at = NOW()

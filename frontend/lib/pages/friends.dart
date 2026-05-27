@@ -28,9 +28,11 @@ class _FriendsPageState extends State<FriendsPage> {
     final results = await Future.wait([
       FriendsService.getFriends(),
       FriendsService.getPendingRequests(),
+      FriendsService.getNotifications(),
     ]);
     final friends = results[0] as List<FriendUser>;
     final pending = results[1] as List<PendingRequest>;
+    final notifs = results[2] as List<AppNotification>;
 
     if (pending.isNotEmpty) {
       notifications.show(
@@ -42,6 +44,21 @@ class _FriendsPageState extends State<FriendsPage> {
           iOS: DarwinNotificationDetails(),
         ),
       );
+    }
+
+    for (int i = 0; i < notifs.length; i++) {
+      notifications.show(
+        100 + i,
+        'Friends',
+        notifs[i].message,
+        const NotificationDetails(
+          android: AndroidNotificationDetails('friends', 'Friend Requests'),
+          iOS: DarwinNotificationDetails(),
+        ),
+      );
+    }
+    if (notifs.isNotEmpty) {
+      FriendsService.markNotificationsRead();
     }
 
     if (mounted) {
@@ -61,6 +78,33 @@ class _FriendsPageState extends State<FriendsPage> {
   Future<void> _decline(PendingRequest req) async {
     await FriendsService.declineRequest(req.id);
     _load();
+  }
+
+  Future<void> _removeFriend(FriendUser friend) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove friend'),
+        content: Text('Remove ${friend.name} from your friends?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final ok = await FriendsService.removeFriend(friend.id);
+    if (!mounted) return;
+    if (ok) _load();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? '${friend.name} removed.' : 'Something went wrong.'),
+    ));
   }
 
   @override
@@ -100,7 +144,10 @@ class _FriendsPageState extends State<FriendsPage> {
                           style: TextStyle(color: Colors.grey)),
                     )
                   else
-                    ..._friends.map((f) => _FriendTile(friend: f)),
+                    ..._friends.map((f) => _FriendTile(
+                        friend: f,
+                        onRemove: () => _removeFriend(f),
+                      )),
                 ],
               ),
             ),
@@ -149,7 +196,9 @@ class _PendingCard extends StatelessWidget {
 
 class _FriendTile extends StatelessWidget {
   final FriendUser friend;
-  const _FriendTile({required this.friend});
+  final VoidCallback onRemove;
+
+  const _FriendTile({required this.friend, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +208,11 @@ class _FriendTile extends StatelessWidget {
       child: ListTile(
         leading: _Avatar(name: friend.name),
         title: Text(friend.name),
+        trailing: IconButton(
+          icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
+          onPressed: onRemove,
+          tooltip: 'Remove friend',
+        ),
       ),
     );
   }

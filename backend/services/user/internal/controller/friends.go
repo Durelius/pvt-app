@@ -91,6 +91,69 @@ func GetPendingHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(pending)
 }
 
+func RemoveFriendHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := callerID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	friendIDStr := mux.Vars(r)["id"]
+	friendID, err := strconv.Atoi(friendIDStr)
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	db := shareddb.Instance()
+
+	// Fetch remover's name for the notification message.
+	remover, err := repository.GetUserByGoogleID(db, func() string {
+		claims := standardrouter.ClaimsFromContext(r.Context())
+		if claims == nil {
+			return ""
+		}
+		return claims.GoogleID
+	}())
+	if err != nil {
+		plog.Errorf("get remover user: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := repository.RemoveFriend(db, userID, friendID); err != nil {
+		plog.Errorf("remove friend: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := repository.InsertNotification(db, friendID,
+		remover.Name+" removed you as a friend."); err != nil {
+		plog.Errorf("insert removal notification: %v", err)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func GetSentHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := callerID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	db := shareddb.Instance()
+	sent, err := repository.GetSentRequests(db, userID)
+	if err != nil {
+		plog.Errorf("get sent requests: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sent)
+}
+
 func respondToRequest(w http.ResponseWriter, r *http.Request, status string) {
 	userID, ok := callerID(r)
 	if !ok {

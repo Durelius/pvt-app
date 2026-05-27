@@ -12,6 +12,7 @@ import 'friends.dart';
 import 'settings.dart';
 
 final mapboxToken = dotenv.env['MAPBOX_ACCESS_TOKEN']!;
+const Color _kPurple = Color(0xFF63519F);
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,6 +32,9 @@ class _HomePageState extends State<HomePage> {
   List<FriendUser> userSuggestions = [];
   String searchTerm = "";
   int _pendingFriendCount = 0;
+  List<FriendUser> _friends = [];
+  List<PendingRequest> _pendingRequests = [];
+  Set<int> _sentRequestUserIds = {};
 
   final List<String> items = [];
   List<dynamic> _results = [];
@@ -41,13 +45,26 @@ class _HomePageState extends State<HomePage> {
     _focusNode.addListener(() {
       setState(() {});
     });
-    _refreshPendingCount();
+    _refreshData();
   }
 
-  Future<void> _refreshPendingCount() async {
+  Future<void> _refreshData() async {
     if (!AuthService.instance.isLoggedIn) return;
-    final pending = await FriendsService.getPendingRequests();
-    if (mounted) setState(() => _pendingFriendCount = pending.length);
+    final results = await Future.wait([
+      FriendsService.getFriends(),
+      FriendsService.getPendingRequests(),
+      FriendsService.getSentRequests(),
+    ]);
+    if (!mounted) return;
+    final friends = results[0] as List<FriendUser>;
+    final pending = results[1] as List<PendingRequest>;
+    final sent = results[2] as List<FriendUser>;
+    setState(() {
+      _friends = friends;
+      _pendingRequests = pending;
+      _pendingFriendCount = pending.length;
+      _sentRequestUserIds = sent.map((u) => u.id).toSet();
+    });
   }
 
   void onTextChanged(String searchParam) {
@@ -95,6 +112,67 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _showFriendRequestDialog(FriendUser user) async {
     setState(() { suggestions = []; userSuggestions = []; controller.clear(); searchTerm = ""; });
+
+    final isConfirmed = _friends.any((f) => f.id == user.id);
+    if (isConfirmed) {
+      final friend = _friends.firstWhere((f) => f.id == user.id);
+      if (friend.hasHomeAddress) {
+        mapController.move(LatLng(friend.homeAddressLat, friend.homeAddressLon), 15);
+      }
+      return;
+    }
+
+    final incoming = _pendingRequests.where((r) => r.sender.id == user.id).firstOrNull;
+    if (incoming != null) {
+      final accept = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(user.name),
+          content: Text('${user.name} has sent you a friend request.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Decline'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Accept', style: TextStyle(color: Color(0xFF63519F))),
+            ),
+          ],
+        ),
+      );
+      if (accept == null || !mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final ok = accept
+          ? await FriendsService.acceptRequest(incoming.id)
+          : await FriendsService.declineRequest(incoming.id);
+      if (!mounted) return;
+      if (ok) await _refreshData();
+      messenger.showSnackBar(SnackBar(
+        content: Text(ok
+            ? (accept ? 'You are now friends with ${user.name}!' : 'Request declined.')
+            : 'Something went wrong.'),
+      ));
+      return;
+    }
+
+    if (_sentRequestUserIds.contains(user.id)) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(user.name),
+          content: Text('Waiting for ${user.name} to accept your friend request.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -113,9 +191,11 @@ class _HomePageState extends State<HomePage> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
     final ok = await FriendsService.sendFriendRequest(user.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    if (ok) await _refreshData();
+    messenger.showSnackBar(SnackBar(
       content: Text(ok ? 'Friend request sent to ${user.name}!' : 'Could not send request.'),
     ));
   }
@@ -143,6 +223,31 @@ class _HomePageState extends State<HomePage> {
                     '© OpenStreetMap contributors © Mapbox',
                   ),
                 ],
+              ),
+              MarkerLayer(
+                markers: _friends
+                    .where((f) => f.hasHomeAddress)
+                    .map((f) => Marker(
+                          point: LatLng(f.homeAddressLat, f.homeAddressLon),
+                          width: 120,
+                          height: 60,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                color: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  f.name,
+                                  style: const TextStyle(fontSize: 10),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.place, color: _kPurple, size: 28),
+                            ],
+                          ),
+                        ))
+                    .toList(),
               ),
             ],
           ),
@@ -205,7 +310,7 @@ class _HomePageState extends State<HomePage> {
                             if (!isLoggedIn) { goToLogin(); return; }
                             Navigator.push(context,
                                 MaterialPageRoute(builder: (context) => const FriendsPage()))
-                              .then((_) => _refreshPendingCount());
+                              .then((_) => _refreshData());
                           }
                           if (value == 'settings') {
                             Navigator.push(context,
