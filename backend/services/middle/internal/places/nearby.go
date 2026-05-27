@@ -15,6 +15,8 @@ import (
 	"github.com/durelius/pvt-app/backend/shared/models/location"
 )
 
+
+
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
 
 // Overpass public instances tried in order on failure.
@@ -382,7 +384,7 @@ func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 
 // Mapbox för adresser
 func GeocodeAddress(query string) error {
-	token := os.Getenv("MAPBOX_TOKEN")
+	token := os.Getenv("MAPBOX_ACCESS_TOKEN")
 
 	url := fmt.Sprintf(
 		"https://api.mapbox.com/geocoding/v5/mapbox.places/%s.json?access_token=%s&limit=1",
@@ -403,7 +405,7 @@ func GeocodeAddress(query string) error {
 }
 
 func reverseGeocodeMapbox(lat, lon float64) string {
-	token := os.Getenv("MAPBOX_TOKEN")
+	token := os.Getenv("MAPBOX_ACCESS_TOKEN")
 	if token == "" {
 		return ""
 	}
