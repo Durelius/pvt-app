@@ -12,6 +12,16 @@ import (
 	"github.com/gocarina/gocsv"
 )
 
+// compactStopTime stores only what edge-building needs, with times pre-parsed to
+// int16 minutes and TripID omitted (it lives as the map key instead).
+// Compared to StopTimes this cuts per-row map memory from ~99 bytes to ~41 bytes.
+type compactStopTime struct {
+	StopID       string
+	StopSequence int16
+	Departure    int16
+	Arrival      int16
+}
+
 func (graph *SLGraph) initFromDir(dir string) error {
 	return graph.initFromPaths(dir, dir+"/sl_stops.csv")
 }
@@ -40,20 +50,25 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		v.SetMetadata(stop)
 		graph.AddVertex(v)
 	}
-	stopTimeMap := make(map[string][]StopTimes, 150000)
+
+	stopTimeMap := make(map[string][]compactStopTime, 150000)
 	if err := buildStopTimeMap(stopTimesArg, stopTimeMap); err != nil {
 		return err
 	}
+
+	// Pre-assign intern IDs from map keys — keys are already deduplicated trip IDs.
+	tripIntern := make(map[string]uint32, len(stopTimeMap))
+	var nextTripID uint32 = 1
+	for tripID := range stopTimeMap {
+		tripIntern[tripID] = nextTripID
+		nextTripID++
+	}
+
 	for tripID, times := range stopTimeMap {
 		sort.Slice(times, func(i, j int) bool {
 			return times[i].StopSequence < times[j].StopSequence
 		})
-		stopTimeMap[tripID] = times
-	}
-	// intern trip ID strings to compact uint32 values
-	tripIntern := make(map[string]uint32, len(stopTimeMap))
-	var nextTripID uint32 = 1
-	for _, times := range stopTimeMap {
+		tid := tripIntern[tripID]
 		for i := 0; i < len(times)-1; i++ {
 			from := times[i]
 			to := times[i+1]
@@ -62,16 +77,10 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 			if fromV == nil || toV == nil {
 				continue
 			}
-			tid, ok := tripIntern[from.TripID]
-			if !ok {
-				tid = nextTripID
-				tripIntern[from.TripID] = tid
-				nextTripID++
-			}
 			props := EdgeProperties{
 				TripID:       tid,
-				Departure:    int16(toMinutes(from.DepartureTime)),
-				Arrival:      int16(toMinutes(to.ArrivalTime)),
+				Departure:    from.Departure,
+				Arrival:      to.Arrival,
 				TransferType: COMMUTE_EDGE,
 			}
 			if _, err := graph.AddEdge(fromV, toV, props); err != nil {
@@ -131,8 +140,8 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 }
 
 // buildStopTimeMap streams stop_times CSV files one at a time into stopTimeMap,
-// GC'ing between files so only one file's allocations live alongside the growing map.
-func buildStopTimeMap(arg string, stopTimeMap map[string][]StopTimes) error {
+// converting times to int16 minutes immediately and GC'ing between files.
+func buildStopTimeMap(arg string, stopTimeMap map[string][]compactStopTime) error {
 	info, err := os.Stat(arg)
 	if err != nil {
 		return err
@@ -153,7 +162,12 @@ func buildStopTimeMap(arg string, stopTimeMap map[string][]StopTimes) error {
 			return fmt.Errorf("loading %s: %w", p, err)
 		}
 		for _, st := range chunk {
-			stopTimeMap[st.TripID] = append(stopTimeMap[st.TripID], *st)
+			stopTimeMap[st.TripID] = append(stopTimeMap[st.TripID], compactStopTime{
+				StopID:       st.StopID,
+				StopSequence: int16(st.StopSequence),
+				Departure:    int16(toMinutes(st.DepartureTime)),
+				Arrival:      int16(toMinutes(st.ArrivalTime)),
+			})
 		}
 		chunk = nil
 		runtime.GC()
