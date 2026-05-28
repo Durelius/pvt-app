@@ -81,7 +81,7 @@ EOF
   fi
 
   mem_limit="96m"
-  [ "$name" = "sl" ] && mem_limit="192m"
+  [[ "$name" = "sl" || "$name" = "middle" ]] && mem_limit="192m"
 
   cat >> docker-compose.prod.yml << EOF
     container_name: ${name}
