@@ -64,11 +64,13 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		nextTripID++
 	}
 
+	n := 0
 	for tripID, times := range stopTimeMap {
 		sort.Slice(times, func(i, j int) bool {
 			return times[i].StopSequence < times[j].StopSequence
 		})
 		tid := tripIntern[tripID]
+		delete(stopTimeMap, tripID) // release slice backing array progressively
 		for i := 0; i < len(times)-1; i++ {
 			from := times[i]
 			to := times[i+1]
@@ -86,6 +88,10 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 			if _, err := graph.AddEdge(fromV, toV, props); err != nil {
 				return err
 			}
+		}
+		n++
+		if n%20000 == 0 {
+			runtime.GC()
 		}
 	}
 	if err := graph.addTransferEdges(stops); err != nil {

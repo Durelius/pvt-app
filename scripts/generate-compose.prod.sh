@@ -99,6 +99,15 @@ EOF
     container_name: ${name}
     environment:
       - SERVICE_NAME=${name}
+EOF
+
+  if [ "$name" = "middle" ]; then
+    cat >> docker-compose.prod.yml << EOF
+      - GOMEMLIMIT=280MiB
+EOF
+  fi
+
+  cat >> docker-compose.prod.yml << EOF
     env_file:
       - .env
     restart: "no"
