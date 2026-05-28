@@ -1,0 +1,49 @@
+services:
+  api-gateway:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  db:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  auth:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  middle:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  signinverification:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+
+  sl:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+
+  user:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 96M
