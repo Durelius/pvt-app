@@ -30,6 +30,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Mirror postgres to ghcr.io
+        run: |
+          docker pull postgres:16
+          docker tag postgres:16 $IMAGE_PREFIX/pvt-postgres:16
+          docker push $IMAGE_PREFIX/pvt-postgres:16
+
       - name: Build and push all images
         run: |
           docker build -f DockerGateway.prod \

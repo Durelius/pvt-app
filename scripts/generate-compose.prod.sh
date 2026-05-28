@@ -34,7 +34,7 @@ cat >> docker-compose.prod.yml << EOF
         condition: service_healthy
 
   db:
-    image: postgres:16
+    image: ${IMAGE_PREFIX:+${IMAGE_PREFIX}/pvt-postgres:16}${IMAGE_PREFIX:-postgres:16}
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
