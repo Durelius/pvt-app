@@ -17,9 +17,10 @@ import (
 // trip = transfer penalty). hasWalked prevents consecutive walk edges — you must
 // board transit before walking again, which stops the algorithm from chaining short
 // walks across the stop network instead of using transit.
+// tripID 0 means no active trip (walk arrival or initial state).
 type routeState struct {
 	stopID    string
-	tripID    string // empty for walk arrivals and the initial state
+	tripID    uint32
 	hasWalked bool
 }
 
@@ -28,7 +29,7 @@ func (s routeState) key() string {
 	if s.hasWalked {
 		w = "1"
 	}
-	return s.stopID + "\x00" + s.tripID + "\x00" + w
+	return s.stopID + "\x00" + strconv.FormatUint(uint64(s.tripID), 36) + "\x00" + w
 }
 
 type routeInfo struct {
@@ -43,7 +44,7 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	open := make(pq.PriorityQueue, 0)
 	heap.Init(&open)
 
-	startState := routeState{stopID: start.metadata.StopID, tripID: ""}
+	startState := routeState{stopID: start.metadata.StopID, tripID: 0}
 	startKey := startState.key()
 	heap.Push(&open, pq.NewItem(startKey, startTime, startTime))
 
@@ -56,7 +57,9 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 		current := heap.Pop(&open).(*pq.Item)
 		curKey := current.Value()
 		parts := strings.SplitN(curKey, "\x00", 3)
-		stopID, tripID, walked := parts[0], parts[1], parts[2]
+		stopID, tripIDStr, walked := parts[0], parts[1], parts[2]
+		tripIDU64, _ := strconv.ParseUint(tripIDStr, 36, 32)
+		tripID := uint32(tripIDU64)
 		currentStop := graph.GetVertexByID(stopID)
 
 		if stopID == destination.label {
@@ -90,9 +93,9 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 			}
 			var neighborKey string
 			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: "", hasWalked: true}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: 0, hasWalked: true}.key()
 			} else {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID, hasWalked: false}.key()
+				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
 			}
 			if best, exists := bestG[neighborKey]; !exists || newG < best {
 				bestG[neighborKey] = newG
@@ -151,7 +154,7 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 			if len(path) == 0 {
 				localMinutes = noPath
 			} else {
-				localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+				localMinutes = replayPath(path, startTime)
 			}
 		}
 	} else {
@@ -160,7 +163,7 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 			graph.travelCache.Store(cacheKey, noPath)
 			return -1
 		}
-		localMinutes = path[len(path)-1].Metadata.Arrival - startTime
+		localMinutes = replayPath(path, startTime)
 		graph.travelCache.Store(cacheKey, localMinutes)
 		return localMinutes
 	}
@@ -228,4 +231,25 @@ func (graph *SLGraph) FindStopsByName(name string) []*Vertex {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].label < out[j].label })
 	return out
+}
+
+// replayPath simulates the path through calculateG to get accurate end-to-end
+// travel time. Using Metadata.Arrival directly is wrong for walk edges, where
+// Arrival stores duration rather than absolute clock time.
+func replayPath(path []*Edge, startTime int) int {
+	currentTime := startTime
+	var currentTripID uint32
+	for _, e := range path {
+		g := e.calculateG(currentTime, currentTripID)
+		if g < 0 {
+			return g
+		}
+		currentTime = g
+		if e.Metadata.TransferType != WALK_EDGE {
+			currentTripID = e.Metadata.TripID
+		} else {
+			currentTripID = 0
+		}
+	}
+	return currentTime - startTime
 }

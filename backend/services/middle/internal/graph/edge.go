@@ -2,20 +2,21 @@ package graph
 
 import "sync/atomic"
 
-type EdgeType int
+type EdgeType int8
 
 const (
 	WALK_EDGE    EdgeType = iota + 1
 	COMMUTE_EDGE EdgeType = iota + 1
 )
 
+// EdgeProperties is packed tightly to minimize per-edge memory.
+// TripID is an interned uint32 (0 = no trip / walk edge).
+// Departure and Arrival are minutes since midnight; int16 covers up to ~546 hours.
 type EdgeProperties struct {
-	TripID         string
-	Departure      int
-	Arrival        int
-	TransferType   EdgeType
-	SourceStopName string
-	DestStopName   string
+	TripID       uint32
+	Departure    int16
+	Arrival      int16
+	TransferType EdgeType
 }
 
 type Edge struct {

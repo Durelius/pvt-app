@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -12,13 +13,7 @@ import (
 )
 
 func (graph *SLGraph) initFromDir(dir string) error {
-	return graph.initFromPaths(
-		dir+"/sl_agency.csv",
-		dir+"/sl_routes.csv",
-		dir,
-		dir+"/sl_stops.csv",
-		dir+"/sl_trips.csv",
-	)
+	return graph.initFromPaths(dir, dir+"/sl_stops.csv")
 }
 
 func (graph *SLGraph) init() error {
@@ -31,27 +26,38 @@ func (graph *SLGraph) init() error {
 
 // stopTimesArg is either a directory (loads sl_stop_times_part*.csv from it)
 // or a direct file path (used in tests).
-func (graph *SLGraph) initFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath string) error {
-	_, _, stopTimes, stops, _, err := loadFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath)
+func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
+	stopTimes, err := loadStopTimes(stopTimesArg)
+	if err != nil {
+		return err
+	}
+	stops, err := loadCSV[Stop](stopsPath)
 	if err != nil {
 		return err
 	}
 	for _, stop := range stops {
+		if stop.LocationType != "0" {
+			continue // skip parent stations, entrances, and other non-boarding nodes
+		}
 		v := NewVertex(stop.StopID)
 		stop.StopNameLower = strings.ToLower(stop.StopName)
 		v.SetMetadata(stop)
 		graph.AddVertex(v)
 	}
-	stopTimeMap := make(map[string][]StopTimes)
+	stopTimeMap := make(map[string][]StopTimes, 150000)
 	for _, stopTime := range stopTimes {
 		stopTimeMap[stopTime.TripID] = append(stopTimeMap[stopTime.TripID], *stopTime)
 	}
+	stopTimes = nil // allow GC of raw CSV data before building edges
 	for tripID, times := range stopTimeMap {
 		sort.Slice(times, func(i, j int) bool {
 			return times[i].StopSequence < times[j].StopSequence
 		})
 		stopTimeMap[tripID] = times
 	}
+	// intern trip ID strings to compact uint32 values
+	tripIntern := make(map[string]uint32, len(stopTimeMap))
+	var nextTripID uint32 = 1
 	for _, times := range stopTimeMap {
 		for i := 0; i < len(times)-1; i++ {
 			from := times[i]
@@ -61,26 +67,40 @@ func (graph *SLGraph) initFromPaths(agencyPath, routesPath, stopTimesArg, stopsP
 			if fromV == nil || toV == nil {
 				continue
 			}
+			tid, ok := tripIntern[from.TripID]
+			if !ok {
+				tid = nextTripID
+				tripIntern[from.TripID] = tid
+				nextTripID++
+			}
 			props := EdgeProperties{
-				TripID:         from.TripID,
-				Departure:      toMinutes(from.DepartureTime),
-				Arrival:        toMinutes(to.ArrivalTime),
-				TransferType:   COMMUTE_EDGE,
-				SourceStopName: fromV.metadata.StopName,
-				DestStopName:   toV.metadata.StopName,
+				TripID:       tid,
+				Departure:    int16(toMinutes(from.DepartureTime)),
+				Arrival:      int16(toMinutes(to.ArrivalTime)),
+				TransferType: COMMUTE_EDGE,
 			}
 			if _, err := graph.AddEdge(fromV, toV, props); err != nil {
 				return err
 			}
 		}
 	}
-	return graph.addTransferEdges(stops)
+	if err := graph.addTransferEdges(stops); err != nil {
+		return err
+	}
+	runtime.GC()
+	return nil
 }
 
 func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 	for i, a := range stops {
+		if a.LocationType != "0" {
+			continue
+		}
 		for j, b := range stops {
 			if i >= j {
+				continue
+			}
+			if b.LocationType != "0" {
 				continue
 			}
 			if a.StopName == b.StopName {
@@ -97,11 +117,9 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 					walkMinutes = 1
 				}
 				props := EdgeProperties{
-					Departure:      0,
-					Arrival:        walkMinutes,
-					TransferType:   WALK_EDGE,
-					SourceStopName: a.StopName,
-					DestStopName:   b.StopName,
+					Departure:    0,
+					Arrival:      int16(walkMinutes),
+					TransferType: WALK_EDGE,
 				}
 				from := graph.GetVertexByID(a.StopID)
 				to := graph.GetVertexByID(b.StopID)
@@ -115,30 +133,6 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 		}
 	}
 	return nil
-}
-
-func loadFromPaths(agencyPath, routesPath, stopTimesArg, stopsPath, tripsPath string) ([]*Agency, []*Routes, []*StopTimes, []*Stop, []*Trips, error) {
-	agencies, err := loadCSV[Agency](agencyPath)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	routes, err := loadCSV[Routes](routesPath)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	stopTimes, err := loadStopTimes(stopTimesArg)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	stops, err := loadCSV[Stop](stopsPath)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	trips, err := loadCSV[Trips](tripsPath)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	return agencies, routes, stopTimes, stops, trips, nil
 }
 
 // loadStopTimes accepts either a directory (globs sl_stop_times_part*.csv)

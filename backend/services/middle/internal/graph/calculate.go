@@ -14,17 +14,17 @@ func calculateH(from *Stop, destination *Stop) int {
 	return int(dist / 1166.0)
 }
 
-func (e *Edge) calculateG(currentTime int, currentTripID string) int {
+func (e *Edge) calculateG(currentTime int, currentTripID uint32) int {
 	if e.Metadata.TransferType == WALK_EDGE {
-		return currentTime + e.Metadata.Arrival + 5
+		return currentTime + int(e.Metadata.Arrival) + 5
 	}
-	if e.Metadata.Departure < currentTime {
+	if int(e.Metadata.Departure) < currentTime {
 		return -1
 	}
-	waitTime := e.Metadata.Departure - currentTime
-	travelTime := e.Metadata.Arrival - e.Metadata.Departure
+	waitTime := int(e.Metadata.Departure) - currentTime
+	travelTime := int(e.Metadata.Arrival) - int(e.Metadata.Departure)
 	penalty := 0
-	if currentTripID != "" && e.Metadata.TripID != "" && currentTripID != e.Metadata.TripID {
+	if currentTripID != 0 && e.Metadata.TripID != 0 && currentTripID != e.Metadata.TripID {
 		penalty = 5
 	}
 	return currentTime + waitTime + travelTime + penalty
