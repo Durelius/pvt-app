@@ -31,8 +31,6 @@ type StopTimes struct {
 	DepartureTime string `csv:"departure_time"`
 	StopID        string `csv:"stop_id"`
 	StopSequence  int    `csv:"stop_sequence"`
-	PickupType    string `csv:"pickup_type"`
-	DropOffType   string `csv:"drop_off_type"`
 }
 
 type Stop struct {

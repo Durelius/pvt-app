@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -38,6 +39,7 @@ func NewWithData() (*SLGraph, error) {
 			return
 		}
 		instance = graph
+		runtime.GC() // release stopTimeMap/tripIntern/string backing data from init
 		plog.Infof("SL graph loaded: %d stops, %d edges", graph.Order(), graph.Size())
 	})
 	if initErr != nil {
