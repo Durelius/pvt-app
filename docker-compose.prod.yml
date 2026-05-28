@@ -1,49 +1,119 @@
 services:
   api-gateway:
+    build:
+      context: .
+      dockerfile: DockerGateway.prod
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 96M
+    mem_limit: 96m
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    volumes:
+      - db-data:/var/lib/postgresql/data
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 128M
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   auth:
+    build:
+      context: .
+      dockerfile: DockerService.prod
+      args:
+        SERVICE_NAME: auth
+    container_name: auth
+    environment:
+      - SERVICE_NAME=auth
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 96M
+    mem_limit: 96m
+    depends_on:
+      db:
+        condition: service_healthy
 
   middle:
+    build:
+      context: .
+      dockerfile: DockerMiddle.prod
+      args:
+        SERVICE_NAME: middle
+    container_name: middle
+    environment:
+      - SERVICE_NAME=middle
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 96M
+    mem_limit: 96m
+    depends_on:
+      db:
+        condition: service_healthy
 
   signinverification:
+    build:
+      context: .
+      dockerfile: DockerService.prod
+      args:
+        SERVICE_NAME: signinverification
+    container_name: signinverification
+    environment:
+      - SERVICE_NAME=signinverification
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 96M
+    mem_limit: 96m
+    depends_on:
+      db:
+        condition: service_healthy
 
   sl:
+    build:
+      context: .
+      dockerfile: DockerService.prod
+      args:
+        SERVICE_NAME: sl
+    container_name: sl
+    environment:
+      - SERVICE_NAME=sl
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 192M
+    mem_limit: 192m
+    depends_on:
+      db:
+        condition: service_healthy
 
   user:
+    build:
+      context: .
+      dockerfile: DockerService.prod
+      args:
+        SERVICE_NAME: user
+    container_name: user
+    environment:
+      - SERVICE_NAME=user
+    env_file:
+      - .env
     restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 96M
+    mem_limit: 96m
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

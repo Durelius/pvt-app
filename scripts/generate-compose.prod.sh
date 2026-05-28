@@ -27,7 +27,8 @@ cat >> docker-compose.prod.yml << EOF
       - "8080:8080"
     env_file:
       - .env
-    restart: unless-stopped
+    restart: "no"
+    mem_limit: 96m
     depends_on:
       db:
         condition: service_healthy
@@ -40,7 +41,8 @@ cat >> docker-compose.prod.yml << EOF
       POSTGRES_DB: mydb
     volumes:
       - db-data:/var/lib/postgresql/data
-    restart: unless-stopped
+    restart: "no"
+    mem_limit: 128m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
       interval: 5s
@@ -78,13 +80,17 @@ EOF
 EOF
   fi
 
+  mem_limit="96m"
+  [ "$name" = "sl" ] && mem_limit="192m"
+
   cat >> docker-compose.prod.yml << EOF
     container_name: ${name}
     environment:
       - SERVICE_NAME=${name}
     env_file:
       - .env
-    restart: unless-stopped
+    restart: "no"
+    mem_limit: ${mem_limit}
     depends_on:
       db:
         condition: service_healthy
