@@ -27,10 +27,6 @@ func (graph *SLGraph) init() error {
 // stopTimesArg is either a directory (loads sl_stop_times_part*.csv from it)
 // or a direct file path (used in tests).
 func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
-	stopTimes, err := loadStopTimes(stopTimesArg)
-	if err != nil {
-		return err
-	}
 	stops, err := loadCSV[Stop](stopsPath)
 	if err != nil {
 		return err
@@ -45,10 +41,9 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		graph.AddVertex(v)
 	}
 	stopTimeMap := make(map[string][]StopTimes, 150000)
-	for _, stopTime := range stopTimes {
-		stopTimeMap[stopTime.TripID] = append(stopTimeMap[stopTime.TripID], *stopTime)
+	if err := buildStopTimeMap(stopTimesArg, stopTimeMap); err != nil {
+		return err
 	}
-	stopTimes = nil // allow GC of raw CSV data before building edges
 	for tripID, times := range stopTimeMap {
 		sort.Slice(times, func(i, j int) bool {
 			return times[i].StopSequence < times[j].StopSequence
@@ -135,32 +130,35 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 	return nil
 }
 
-// loadStopTimes accepts either a directory (globs sl_stop_times_part*.csv)
-// or a direct file path.
-func loadStopTimes(arg string) ([]*StopTimes, error) {
+// buildStopTimeMap streams stop_times CSV files one at a time into stopTimeMap,
+// GC'ing between files so only one file's allocations live alongside the growing map.
+func buildStopTimeMap(arg string, stopTimeMap map[string][]StopTimes) error {
 	info, err := os.Stat(arg)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var paths []string
 	if info.IsDir() {
 		paths, err = filepath.Glob(filepath.Join(arg, "sl_stop_times_part*.csv"))
 		if err != nil {
-			return nil, err
+			return err
 		}
 		sort.Strings(paths)
 	} else {
 		paths = []string{arg}
 	}
-	var all []*StopTimes
 	for _, p := range paths {
 		chunk, err := loadCSV[StopTimes](p)
 		if err != nil {
-			return nil, fmt.Errorf("loading %s: %w", p, err)
+			return fmt.Errorf("loading %s: %w", p, err)
 		}
-		all = append(all, chunk...)
+		for _, st := range chunk {
+			stopTimeMap[st.TripID] = append(stopTimeMap[st.TripID], *st)
+		}
+		chunk = nil
+		runtime.GC()
 	}
-	return all, nil
+	return nil
 }
 
 func loadCSV[T any](path string) ([]*T, error) {
