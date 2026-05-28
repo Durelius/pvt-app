@@ -4,6 +4,7 @@
 /tmp
 **/tmp/
 docker-compose.yml
+docker-compose.prod.yml
 .DS_Store
 logs/*
 memory/*
