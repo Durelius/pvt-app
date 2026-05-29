@@ -112,5 +112,11 @@ jobs:
           ssh -o StrictHostKeyChecking=no $DEPLOY_USER@$DEPLOY_IP "
             cd /var/www/pvt-backend &&
             docker compose -f docker-compose.prod.yml pull &&
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans &&
+            docker image prune -f
+            DISK_PCT=\$(df / --output=pcent | tail -1 | tr -d ' %')
+            if [ \"\$DISK_PCT\" -gt 70 ]; then
+              echo \"Disk at \${DISK_PCT}%, pruning unused images\"
+              docker image prune -af --filter 'until=1h'
+            fi
           "

@@ -29,6 +29,11 @@ cat >> docker-compose.prod.yml << EOF
       - .env
     restart: unless-stopped
     mem_limit: 96m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +60,11 @@ cat >> docker-compose.prod.yml << EOF
       - db-data:/var/lib/postgresql/data
     restart: unless-stopped
     mem_limit: 128m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d mydb"]
       interval: 5s
@@ -112,6 +122,11 @@ EOF
       - .env
     restart: unless-stopped
     mem_limit: ${mem_limit}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
