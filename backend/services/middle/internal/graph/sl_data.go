@@ -97,7 +97,10 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 			runtime.GC()
 		}
 	}
-	logMem("after commute edges")
+	tripIntern = nil
+	stopTimeMap = nil
+	runtime.GC()
+	logMem("after commute edges+GC")
 	if err := graph.addTransferEdges(stops); err != nil {
 		return err
 	}
