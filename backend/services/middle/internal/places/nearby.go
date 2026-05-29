@@ -1,6 +1,7 @@
 package places
 
 import (
+	"context"
 	"net/url"
 	"bytes"
 	"encoding/json"
@@ -20,7 +21,7 @@ import (
 
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
 
-var overpassClient = &http.Client{Timeout: 5 * time.Second}
+var overpassClient = &http.Client{Timeout: 30 * time.Second}
 var mapboxClient = &http.Client{Timeout: 3 * time.Second}
 
 // Overpass public instances tried in order on failure.
@@ -169,40 +170,63 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 	sb.WriteString(");\nout center 100;\n")
 	query := sb.String()
 
+	type attempt struct {
+		result OverpassResponse
+		err    error
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch := make(chan attempt, len(overpassEndpoints))
+	for _, ep := range overpassEndpoints {
+		go func(endpoint string) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader("data="+query))
+			if err != nil {
+				ch <- attempt{err: err}
+				return
+			}
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Set("User-Agent", "pvt-app/1.0")
+
+			resp, err := overpassClient.Do(req)
+			if err != nil {
+				plog.Error(fmt.Errorf("do request (%s): %w", endpoint, err))
+				ch <- attempt{err: fmt.Errorf("do request (%s): %w", endpoint, err)}
+				return
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				b, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				plog.Infof("overpass: %s returned %d", endpoint, resp.StatusCode)
+				ch <- attempt{err: fmt.Errorf("API error %d from %s: %s", resp.StatusCode, endpoint, b)}
+				return
+			}
+
+			var r OverpassResponse
+			err = json.NewDecoder(resp.Body).Decode(&r)
+			resp.Body.Close()
+			if err != nil {
+				ch <- attempt{err: fmt.Errorf("decode response (%s): %w", endpoint, err)}
+				return
+			}
+			ch <- attempt{result: r}
+		}(ep)
+	}
+
 	var (
 		result  OverpassResponse
 		lastErr error
 	)
-	for _, endpoint := range overpassEndpoints {
-		req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader("data="+query))
-		if err != nil {
-			lastErr = err
+	for range overpassEndpoints {
+		a := <-ch
+		if a.err != nil {
+			lastErr = a.err
 			continue
 		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("User-Agent", "pvt-app/1.0")
-
-		resp, err := overpassClient.Do(req)
-		if err != nil {
-			lastErr = fmt.Errorf("do request (%s): %w", endpoint, err)
-			plog.Error(lastErr)
-			continue
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			b, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			lastErr = fmt.Errorf("API error %d from %s: %s", resp.StatusCode, endpoint, b)
-			plog.Infof("overpass: %s returned %d, trying next endpoint", endpoint, resp.StatusCode)
-			continue
-		}
-
-		err = json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
-		if err != nil {
-			lastErr = fmt.Errorf("decode response: %w", err)
-			continue
-		}
+		cancel()
+		result = a.result
 		lastErr = nil
 		break
 	}
