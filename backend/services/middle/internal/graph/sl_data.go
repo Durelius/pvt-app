@@ -36,6 +36,12 @@ func (graph *SLGraph) init() error {
 
 // stopTimesArg is either a directory (loads sl_stop_times_part*.csv from it)
 // or a direct file path (used in tests).
+func logMem(label string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	plog.Infof("MEM [%s]: HeapAlloc=%dMB Sys=%dMB HeapInuse=%dMB", label, m.HeapAlloc/1<<20, m.Sys/1<<20, m.HeapInuse/1<<20)
+}
+
 func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 	stops, err := loadCSV[Stop](stopsPath)
 	if err != nil {
@@ -50,11 +56,13 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		v.SetMetadata(stop)
 		graph.AddVertex(v)
 	}
+	logMem("after stops")
 
 	stopTimeMap := make(map[string][]compactStopTime, 150000)
 	if err := buildStopTimeMap(stopTimesArg, stopTimeMap); err != nil {
 		return err
 	}
+	logMem("after stopTimeMap")
 
 	// Pre-assign intern IDs from map keys — keys are already deduplicated trip IDs.
 	tripIntern := make(map[string]uint32, len(stopTimeMap))
@@ -94,10 +102,12 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 			runtime.GC()
 		}
 	}
+	logMem("after commute edges")
 	if err := graph.addTransferEdges(stops); err != nil {
 		return err
 	}
 	runtime.GC()
+	logMem("after transfer edges+GC")
 	return nil
 }
 
@@ -177,6 +187,7 @@ func buildStopTimeMap(arg string, stopTimeMap map[string][]compactStopTime) erro
 		}
 		chunk = nil
 		runtime.GC()
+		logMem("after file " + p)
 	}
 	return nil
 }
