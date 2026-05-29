@@ -40,6 +40,8 @@ type routeInfo struct {
 // FindRoute finds the fastest route between two stops using A* on real SL timetable data.
 // startTime is minutes since midnight (e.g. 8*60+30 for 08:30).
 // Returns the edges forming the path, or nil if no route found.
+const maxTravelMinutes = 90
+
 func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime int) []*Edge {
 	open := make(pq.PriorityQueue, 0)
 	heap.Init(&open)
@@ -96,6 +98,9 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 				neighborKey = routeState{stopID: edge.dest.label, tripID: 0, hasWalked: true}.key()
 			} else {
 				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
+			}
+			if newG > startTime+maxTravelMinutes {
+				continue
 			}
 			if best, exists := bestG[neighborKey]; !exists || newG < best {
 				bestG[neighborKey] = newG

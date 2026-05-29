@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"time"
 
 	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/graph"
@@ -18,9 +19,10 @@ const (
 	startTime             = 9 * 60
 	maxResults            = 5
 	nearestStopCandidates = 3
-	spreadThreshold       = 10   // target max transit time spread in minutes
+	spreadThreshold       = 10    // target max transit time spread in minutes
 	baseSearchRadius      = 500.0
 	maxSearchRadius       = 4000.0
+	maxScoredCandidates   = 20    // cap A* work per request
 )
 
 func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -92,14 +94,18 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 	radius := baseSearchRadius
 
 	for {
+		t0 := time.Now()
 		candidates, err = searchGrid(*centroid, locationType, radius)
 		if err != nil {
 			plog.Error(err)
 			http.Error(w, "couldn't find nearby places", http.StatusInternalServerError)
 			return
 		}
+		plog.Infof("overpass took %dms, %d candidates", time.Since(t0).Milliseconds(), len(candidates))
 
+		t1 := time.Now()
 		ranked = scoreAndRank(candidates, inputStopSets, g, *centroid, false)
+		plog.Infof("scoring %d candidates took %dms", len(candidates), time.Since(t1).Milliseconds())
 
 		bestSpread := math.MaxInt
 		if len(ranked) > 0 {
@@ -153,6 +159,14 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 	travel := g.TravelMinutes
 	if validate {
 		travel = g.TravelMinutesValidated
+	}
+
+	if len(candidates) > maxScoredCandidates {
+		sort.Slice(candidates, func(i, j int) bool {
+			return approxDistSq(centroid.Latitude, centroid.Longitude, candidates[i].Location.Latitude, candidates[i].Location.Longitude) <
+				approxDistSq(centroid.Latitude, centroid.Longitude, candidates[j].Location.Latitude, candidates[j].Location.Longitude)
+		})
+		candidates = candidates[:maxScoredCandidates]
 	}
 
 	scored := make([]scoredPlace, len(candidates))
