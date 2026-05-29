@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "648166383994-2s5edahe0h27fqrjp822un6ki6cneun4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mitten",
+            "certificate_hash": "d83ff3ddff73a712fed962b12a45f09f9451994b"
+          }
+        },
+        {
           "client_id": "648166383994-60injkuta3jv8thamge46fevoq4kjd3v.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -37,6 +45,13 @@
             {
               "client_id": "648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mitten"
+              }
             }
           ]
         }
