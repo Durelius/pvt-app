@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	plog "github.com/durelius/go-prodlog"
@@ -20,6 +21,7 @@ import (
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
 
 var overpassClient = &http.Client{Timeout: 5 * time.Second}
+var mapboxClient = &http.Client{Timeout: 3 * time.Second}
 
 // Overpass public instances tried in order on failure.
 var overpassEndpoints = []string{
@@ -208,7 +210,15 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 		return nil, lastErr
 	}
 
+	type geocodeTask struct {
+		idx int
+		lat float64
+		lon float64
+	}
+
 	ps := make([]Place, 0, len(result.Elements))
+	var tasks []geocodeTask
+
 	for _, el := range result.Elements {
 		name := el.Tags["name"]
 		if name == "" {
@@ -220,17 +230,11 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 			lat, lon = el.Center.Lat, el.Center.Lon
 		}
 
-		address := buildOverpassAddress(el.Tags)
-		fmt.Printf("OSM address for %s: '%s'\n", name, address)
-		if address == "" {
-			address = reverseGeocodeMapbox(lat, lon)
-			fmt.Printf("Mapbox address for %s: '%s'\n", name, address)
-		}
-
+		idx := len(ps)
 		ps = append(ps, Place{
 			ID:               fmt.Sprintf("%s/%d", el.Type, el.ID),
 			DisplayName:      LocalizedText{Text: name},
-			FormattedAddress: address,
+			FormattedAddress: buildOverpassAddress(el.Tags),
 			Location:         LatLng{Latitude: lat, Longitude: lon},
 			OpeningHours:     coalesce(el.Tags, "opening_hours"),
 			Phone:            coalesce(el.Tags, "phone", "contact:phone"),
@@ -248,6 +252,22 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 			Noise:            el.Tags["noise"],
 			OSMAmenity:       coalesce(el.Tags, "amenity", "shop"),
 		})
+
+		if ps[idx].FormattedAddress == "" {
+			tasks = append(tasks, geocodeTask{idx, lat, lon})
+		}
+	}
+
+	if len(tasks) > 0 {
+		var wg sync.WaitGroup
+		for _, t := range tasks {
+			wg.Add(1)
+			go func(t geocodeTask) {
+				defer wg.Done()
+				ps[t.idx].FormattedAddress = reverseGeocodeMapbox(t.lat, t.lon)
+			}(t)
+		}
+		wg.Wait()
 	}
 
 	return ps, nil
@@ -420,7 +440,7 @@ func reverseGeocodeMapbox(lat, lon float64) string {
 		token,
 	)
 
-	resp, err := http.Get(u)
+	resp, err := mapboxClient.Get(u)
 	if err != nil {
 		return ""
 	}
