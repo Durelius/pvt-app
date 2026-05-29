@@ -10,11 +10,12 @@ import (
 
 type SLGraph struct {
 	vertices          map[string]*Vertex
+	vertexByIdx       []*Vertex          // dense slice for O(1) lookup by Vertex.idx
 	edges             map[string]map[string]*Edge
 	verticesCount     uint32
 	edgesCount        uint32
 	travelCache       sync.Map // key: "startID:destID", value: int (minutes)
-	srcCache          sync.Map // key: startID, value: map[string]int (all reachable stop times)
+	srcCache          sync.Map // key: startIdx uint32, value: map[uint32]int (stopIdx→minutes)
 	skipAPIValidation bool
 }
 

@@ -1,14 +1,33 @@
 package priority_queue
 
+// StateKey encodes a (vertexIdx, tripID, walked) routing state as two uint32s.
+// V = vertexIdx<<1 | (walked ? 1 : 0), Trip = tripID.
+// Using a fixed-size struct avoids string allocation and hashing overhead.
+type StateKey struct {
+	V    uint32
+	Trip uint32
+}
+
+func MakeKey(vertexIdx uint32, tripID uint32, walked bool) StateKey {
+	k := vertexIdx << 1
+	if walked {
+		k |= 1
+	}
+	return StateKey{V: k, Trip: tripID}
+}
+
+func (k StateKey) VertexIdx() uint32 { return k.V >> 1 }
+func (k StateKey) Walked() bool      { return k.V&1 == 1 }
+
 type Item struct {
-	value string
+	key   StateKey
 	g     int
 	f     int
 	index int
 }
 
-func NewItem(stopID string, g, f int) *Item {
-	return &Item{value: stopID, f: f, g: g}
+func NewItem(k StateKey, g, f int) *Item {
+	return &Item{key: k, f: f, g: g}
 }
 
 type PriorityQueue []*Item
@@ -40,6 +59,6 @@ func (pq *PriorityQueue) Pop() any {
 	return item
 }
 
-func (i *Item) Value() string { return i.value }
+func (i *Item) Key() StateKey { return i.key }
 func (i *Item) G() int        { return i.g }
 func (i *Item) F() int        { return i.f }

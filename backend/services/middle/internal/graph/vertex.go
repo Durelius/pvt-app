@@ -4,6 +4,7 @@ import "sync/atomic"
 
 type Vertex struct {
 	label    string
+	idx      uint32  // dense index into SLGraph.vertexByIdx for O(1) lookup
 	edges    []*Edge
 	inDegree int
 	metadata *Stop
@@ -11,6 +12,7 @@ type Vertex struct {
 
 func NewVertex(label string) *Vertex         { return &Vertex{label: label} }
 func (v *Vertex) Label() string              { return v.label }
+func (v *Vertex) Idx() uint32                { return v.idx }
 func (v *Vertex) Metadata() *Stop            { return v.metadata }
 func (v *Vertex) SetMetadata(data *Stop)     { v.metadata = data }
 func (v *Vertex) OutDegree() int             { return len(v.edges) }
@@ -34,6 +36,8 @@ func (graph *SLGraph) AddVertex(v *Vertex) {
 	if _, ok := graph.vertices[v.label]; ok {
 		return
 	}
+	v.idx = uint32(len(graph.vertexByIdx))
+	graph.vertexByIdx = append(graph.vertexByIdx, v)
 	graph.vertices[v.label] = v
 	atomic.AddUint32(&graph.verticesCount, 1)
 }

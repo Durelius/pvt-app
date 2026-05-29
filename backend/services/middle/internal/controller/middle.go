@@ -166,7 +166,7 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 
 	// Build per-source distance maps once via full Dijkstra, then look up O(1).
 	// Falls back to per-pair A* only on validate pass (needs SL API cross-check).
-	type distMap = map[string]int
+	type distMap = map[uint32]int
 	var srcMaps []distMap
 	if !validate {
 		srcMaps = make([]distMap, len(inputStopSets))
@@ -178,9 +178,9 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 				merged := make(distMap)
 				for _, src := range srcSet {
 					dm := g.AllTravelTimesFrom(src, startTime)
-					for stopID, t := range dm {
-						if existing, ok := merged[stopID]; !ok || t < existing {
-							merged[stopID] = t
+					for stopIdx, t := range dm {
+						if existing, ok := merged[stopIdx]; !ok || t < existing {
+							merged[stopIdx] = t
 						}
 					}
 				}
@@ -192,7 +192,7 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 
 	lookupTravel := func(srcIdx int, dst *graph.Vertex) int {
 		if srcMaps != nil {
-			if t, ok := srcMaps[srcIdx][dst.Label()]; ok {
+			if t, ok := srcMaps[srcIdx][dst.Idx()]; ok {
 				return t
 			}
 			return -1

@@ -5,66 +5,41 @@ import (
 	"math"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	plog "github.com/durelius/go-prodlog"
 	pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
 )
 
-// routeState is the A* state key.
-// tripID distinguishes arriving at a stop on different trips (same stop, different
-// trip = transfer penalty). hasWalked prevents consecutive walk edges — you must
-// board transit before walking again, which stops the algorithm from chaining short
-// walks across the stop network instead of using transit.
-// tripID 0 means no active trip (walk arrival or initial state).
-type routeState struct {
-	stopID    string
-	tripID    uint32
-	hasWalked bool
-}
+const maxTravelMinutes = 90
 
-func (s routeState) key() string {
-	w := "0"
-	if s.hasWalked {
-		w = "1"
-	}
-	return s.stopID + "\x00" + strconv.FormatUint(uint64(s.tripID), 36) + "\x00" + w
-}
-
+// routeInfo tracks the edge and parent state for path reconstruction.
 type routeInfo struct {
-	edge     *Edge
-	prevKey  string
+	edge    *Edge
+	prevKey pq.StateKey
 }
 
 // FindRoute finds the fastest route between two stops using A* on real SL timetable data.
-// startTime is minutes since midnight (e.g. 8*60+30 for 08:30).
+// startTime is minutes since midnight (e.g. 9*60 for 09:00).
 // Returns the edges forming the path, or nil if no route found.
-const maxTravelMinutes = 90
-
 func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime int) []*Edge {
 	open := make(pq.PriorityQueue, 0)
 	heap.Init(&open)
 
-	startState := routeState{stopID: start.metadata.StopID, tripID: 0}
-	startKey := startState.key()
+	startKey := pq.MakeKey(start.idx, 0, false)
 	heap.Push(&open, pq.NewItem(startKey, startTime, startTime))
 
-	closed := make(map[string]bool)
-	bestG := make(map[string]int)
+	closed := make(map[pq.StateKey]bool)
+	bestG := make(map[pq.StateKey]int)
 	bestG[startKey] = startTime
-	cameFrom := make(map[string]routeInfo)
+	cameFrom := make(map[pq.StateKey]routeInfo)
 
 	for len(open) > 0 {
 		current := heap.Pop(&open).(*pq.Item)
-		curKey := current.Value()
-		parts := strings.SplitN(curKey, "\x00", 3)
-		stopID, tripIDStr, walked := parts[0], parts[1], parts[2]
-		tripIDU64, _ := strconv.ParseUint(tripIDStr, 36, 32)
-		tripID := uint32(tripIDU64)
-		currentStop := graph.GetVertexByID(stopID)
+		curKey := current.Key()
+		currentStop := graph.vertexByIdx[curKey.VertexIdx()]
 
-		if stopID == destination.label {
+		if currentStop == destination {
 			var path []*Edge
 			key := curKey
 			for key != startKey {
@@ -85,97 +60,32 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 		}
 		closed[curKey] = true
 
-		for _, edge := range currentStop.edges {
-			if edge.Metadata.TransferType == WALK_EDGE && walked == "1" {
-				continue // no consecutive walks; must board transit first
-			}
-			newG := edge.calculateG(current.G(), tripID)
-			if newG == -1 {
-				continue
-			}
-			var neighborKey string
-			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: 0, hasWalked: true}.key()
-			} else {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
-			}
-			if newG > startTime+maxTravelMinutes {
-				continue
-			}
-			if best, exists := bestG[neighborKey]; !exists || newG < best {
-				bestG[neighborKey] = newG
-				neighborStop := graph.GetVertexByID(edge.dest.label)
-				h := calculateH(neighborStop.metadata, destination.metadata)
-				heap.Push(&open, pq.NewItem(neighborKey, newG, newG+h))
-				cameFrom[neighborKey] = routeInfo{edge: edge, prevKey: curKey}
-			}
-		}
-	}
-	return nil
-}
-
-// AllTravelTimesFrom runs a full Dijkstra (no destination, no heuristic) from start,
-// returning the minimum travel minutes to every reachable stop within maxTravelMinutes.
-// Results are stored in srcCache so subsequent calls for the same source return instantly.
-func (graph *SLGraph) AllTravelTimesFrom(start *Vertex, startTime int) map[string]int {
-	if cached, ok := graph.srcCache.Load(start.label); ok {
-		return cached.(map[string]int)
-	}
-
-	open := make(pq.PriorityQueue, 0)
-	heap.Init(&open)
-
-	startState := routeState{stopID: start.metadata.StopID, tripID: 0}
-	startKey := startState.key()
-	heap.Push(&open, pq.NewItem(startKey, startTime, startTime))
-
-	closed := make(map[string]bool)
-	bestG := make(map[string]int)
-	bestG[startKey] = startTime
-	bestByStop := make(map[string]int)
-
-	for len(open) > 0 {
-		current := heap.Pop(&open).(*pq.Item)
-		curKey := current.Value()
-		parts := strings.SplitN(curKey, "\x00", 3)
-		stopID, tripIDStr, walked := parts[0], parts[1], parts[2]
-		tripIDU64, _ := strconv.ParseUint(tripIDStr, 36, 32)
-		tripID := uint32(tripIDU64)
-		currentStop := graph.GetVertexByID(stopID)
-
-		if closed[curKey] {
-			continue
-		}
-		closed[curKey] = true
-
-		travelTime := current.G() - startTime
-		if existing, ok := bestByStop[stopID]; !ok || travelTime < existing {
-			bestByStop[stopID] = travelTime
-		}
+		walked := curKey.Walked()
+		tripID := curKey.Trip
 
 		for _, edge := range currentStop.edges {
-			if edge.Metadata.TransferType == WALK_EDGE && walked == "1" {
+			if edge.Metadata.TransferType == WALK_EDGE && walked {
 				continue
 			}
 			newG := edge.calculateG(current.G(), tripID)
 			if newG == -1 || newG > startTime+maxTravelMinutes {
 				continue
 			}
-			var neighborKey string
+			var neighborKey pq.StateKey
 			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: 0, hasWalked: true}.key()
+				neighborKey = pq.MakeKey(edge.dest.idx, 0, true)
 			} else {
-				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
+				neighborKey = pq.MakeKey(edge.dest.idx, edge.Metadata.TripID, false)
 			}
 			if best, exists := bestG[neighborKey]; !exists || newG < best {
 				bestG[neighborKey] = newG
-				heap.Push(&open, pq.NewItem(neighborKey, newG, newG))
+				h := calculateH(edge.dest.metadata, destination.metadata)
+				heap.Push(&open, pq.NewItem(neighborKey, newG, newG+h))
+				cameFrom[neighborKey] = routeInfo{edge: edge, prevKey: curKey}
 			}
 		}
 	}
-
-	graph.srcCache.Store(start.label, bestByStop)
-	return bestByStop
+	return nil
 }
 
 // TravelMinutes returns the local-graph travel time in minutes (A* only, no SL API).
@@ -208,8 +118,6 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 
 	const noPath = -2 // sentinel cached when A* finds no route
 
-	// On validate pass, trust cached local results; only fall back to the SL API
-	// for pairs where A* found no path at all.
 	var localMinutes int
 	if validate {
 		if cached, ok := graph.travelCache.Load(cacheKey); ok {
@@ -259,14 +167,7 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
 	sm := start.Metadata()
 	dm := destination.Metadata()
-	fromLat, err1 := strconv.ParseFloat(sm.StopLatitude, 64)
-	fromLon, err2 := strconv.ParseFloat(sm.StopLongitude, 64)
-	toLat, err3 := strconv.ParseFloat(dm.StopLatitude, 64)
-	toLon, err4 := strconv.ParseFloat(dm.StopLongitude, 64)
-	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
-		return -1
-	}
-	minutes, err := slPointSearch(fromLat, fromLon, toLat, toLon)
+	minutes, err := slPointSearch(sm.LatF, sm.LonF, dm.LatF, dm.LonF)
 	if err != nil {
 		plog.Warningf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
 		return -1
@@ -288,6 +189,69 @@ func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes
 		return apiMinutes
 	}
 	return localMinutes
+}
+
+// AllTravelTimesFrom runs a full Dijkstra from start, returning the minimum travel
+// minutes to every reachable stop within maxTravelMinutes. Uses struct state keys
+// (no string allocations) for performance. Results are cached in srcCache.
+func (graph *SLGraph) AllTravelTimesFrom(start *Vertex, startTime int) map[uint32]int {
+	if cached, ok := graph.srcCache.Load(start.idx); ok {
+		return cached.(map[uint32]int)
+	}
+
+	open := make(pq.PriorityQueue, 0, 4096)
+	heap.Init(&open)
+
+	startKey := pq.MakeKey(start.idx, 0, false)
+	heap.Push(&open, pq.NewItem(startKey, startTime, startTime))
+
+	closed := make(map[pq.StateKey]bool, 65536)
+	bestG := make(map[pq.StateKey]int, 65536)
+	bestG[startKey] = startTime
+	bestByStop := make(map[uint32]int, 4096)
+
+	for len(open) > 0 {
+		current := heap.Pop(&open).(*pq.Item)
+		curKey := current.Key()
+
+		if closed[curKey] {
+			continue
+		}
+		closed[curKey] = true
+
+		stopIdx := curKey.VertexIdx()
+		travelTime := current.G() - startTime
+		if existing, ok := bestByStop[stopIdx]; !ok || travelTime < existing {
+			bestByStop[stopIdx] = travelTime
+		}
+
+		currentStop := graph.vertexByIdx[stopIdx]
+		walked := curKey.Walked()
+		tripID := curKey.Trip
+
+		for _, edge := range currentStop.edges {
+			if edge.Metadata.TransferType == WALK_EDGE && walked {
+				continue
+			}
+			newG := edge.calculateG(current.G(), tripID)
+			if newG == -1 || newG > startTime+maxTravelMinutes {
+				continue
+			}
+			var neighborKey pq.StateKey
+			if edge.Metadata.TransferType == WALK_EDGE {
+				neighborKey = pq.MakeKey(edge.dest.idx, 0, true)
+			} else {
+				neighborKey = pq.MakeKey(edge.dest.idx, edge.Metadata.TripID, false)
+			}
+			if best, exists := bestG[neighborKey]; !exists || newG < best {
+				bestG[neighborKey] = newG
+				heap.Push(&open, pq.NewItem(neighborKey, newG, newG))
+			}
+		}
+	}
+
+	graph.srcCache.Store(start.idx, bestByStop)
+	return bestByStop
 }
 
 func (graph *SLGraph) FindStopsByName(name string) []*Vertex {
