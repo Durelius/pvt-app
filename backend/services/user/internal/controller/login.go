@@ -8,6 +8,7 @@ import (
 	shareddb "github.com/durelius/pvt-app/backend/shared/db"
 	"github.com/durelius/pvt-app/backend/services/user/internal/googleauth"
 	"github.com/durelius/pvt-app/backend/services/user/internal/repository"
+	models "github.com/durelius/pvt-app/backend/shared/models"
 )
 
 type loginRequest struct {
@@ -29,8 +30,12 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := shareddb.Instance()
-	user, err := repository.UpsertUser(db, profile)
-	if err != nil {
+	var user *models.User
+	if err = shareddb.Retry(3, func() error {
+		var e error
+		user, e = repository.UpsertUser(db, profile)
+		return e
+	}); err != nil {
 		plog.Errorf("upsert user failed: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
