@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/shared/models/location"
@@ -17,6 +18,8 @@ import (
 
 
 const placesURL = "https://places.googleapis.com/v1/places:searchNearby"
+
+var overpassClient = &http.Client{Timeout: 5 * time.Second}
 
 // Overpass public instances tried in order on failure.
 var overpassEndpoints = []string{
@@ -177,9 +180,10 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("User-Agent", "pvt-app/1.0")
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := overpassClient.Do(req)
 		if err != nil {
 			lastErr = fmt.Errorf("do request (%s): %w", endpoint, err)
+			plog.Error(lastErr)
 			continue
 		}
 
