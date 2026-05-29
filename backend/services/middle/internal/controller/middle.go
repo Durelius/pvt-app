@@ -156,17 +156,58 @@ type scoredPlace struct {
 }
 
 func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, centroid location.Point, validate bool) []scoredPlace {
-	travel := g.TravelMinutes
-	if validate {
-		travel = g.TravelMinutesValidated
-	}
-
 	if len(candidates) > maxScoredCandidates {
 		sort.Slice(candidates, func(i, j int) bool {
 			return approxDistSq(centroid.Latitude, centroid.Longitude, candidates[i].Location.Latitude, candidates[i].Location.Longitude) <
 				approxDistSq(centroid.Latitude, centroid.Longitude, candidates[j].Location.Latitude, candidates[j].Location.Longitude)
 		})
 		candidates = candidates[:maxScoredCandidates]
+	}
+
+	// Build per-source distance maps once via full Dijkstra, then look up O(1).
+	// Falls back to per-pair A* only on validate pass (needs SL API cross-check).
+	type distMap = map[string]int
+	var srcMaps []distMap
+	if !validate {
+		srcMaps = make([]distMap, len(inputStopSets))
+		var wgDijk sync.WaitGroup
+		for i, srcSet := range inputStopSets {
+			wgDijk.Add(1)
+			go func(i int, srcSet []*graph.Vertex) {
+				defer wgDijk.Done()
+				merged := make(distMap)
+				for _, src := range srcSet {
+					dm := g.AllTravelTimesFrom(src, startTime)
+					for stopID, t := range dm {
+						if existing, ok := merged[stopID]; !ok || t < existing {
+							merged[stopID] = t
+						}
+					}
+				}
+				srcMaps[i] = merged
+			}(i, srcSet)
+		}
+		wgDijk.Wait()
+	}
+
+	lookupTravel := func(srcIdx int, dst *graph.Vertex) int {
+		if srcMaps != nil {
+			if t, ok := srcMaps[srcIdx][dst.Label()]; ok {
+				return t
+			}
+			return -1
+		}
+		// validate pass: best across the 3 nearest source stops
+		best := math.MaxInt
+		for _, src := range inputStopSets[srcIdx] {
+			if t := g.TravelMinutesValidated(src, dst, startTime); t >= 0 && t < best {
+				best = t
+			}
+		}
+		if best == math.MaxInt {
+			return -1
+		}
+		return best
 	}
 
 	scored := make([]scoredPlace, len(candidates))
@@ -183,13 +224,11 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 
 			times := make([]int, 0, len(inputStopSets))
 			valid := true
-			for _, srcSet := range inputStopSets {
+			for srcIdx := range inputStopSets {
 				best := math.MaxInt
-				for _, src := range srcSet {
-					for _, dst := range placeStops {
-						if t := travel(src, dst, startTime); t >= 0 && t < best {
-							best = t
-						}
+				for _, dst := range placeStops {
+					if t := lookupTravel(srcIdx, dst); t >= 0 && t < best {
+						best = t
 					}
 				}
 				if best == math.MaxInt {

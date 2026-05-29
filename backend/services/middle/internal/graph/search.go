@@ -114,6 +114,70 @@ func (graph *SLGraph) FindRoute(start *Vertex, destination *Vertex, startTime in
 	return nil
 }
 
+// AllTravelTimesFrom runs a full Dijkstra (no destination, no heuristic) from start,
+// returning the minimum travel minutes to every reachable stop within maxTravelMinutes.
+// Results are stored in srcCache so subsequent calls for the same source return instantly.
+func (graph *SLGraph) AllTravelTimesFrom(start *Vertex, startTime int) map[string]int {
+	if cached, ok := graph.srcCache.Load(start.label); ok {
+		return cached.(map[string]int)
+	}
+
+	open := make(pq.PriorityQueue, 0)
+	heap.Init(&open)
+
+	startState := routeState{stopID: start.metadata.StopID, tripID: 0}
+	startKey := startState.key()
+	heap.Push(&open, pq.NewItem(startKey, startTime, startTime))
+
+	closed := make(map[string]bool)
+	bestG := make(map[string]int)
+	bestG[startKey] = startTime
+	bestByStop := make(map[string]int)
+
+	for len(open) > 0 {
+		current := heap.Pop(&open).(*pq.Item)
+		curKey := current.Value()
+		parts := strings.SplitN(curKey, "\x00", 3)
+		stopID, tripIDStr, walked := parts[0], parts[1], parts[2]
+		tripIDU64, _ := strconv.ParseUint(tripIDStr, 36, 32)
+		tripID := uint32(tripIDU64)
+		currentStop := graph.GetVertexByID(stopID)
+
+		if closed[curKey] {
+			continue
+		}
+		closed[curKey] = true
+
+		travelTime := current.G() - startTime
+		if existing, ok := bestByStop[stopID]; !ok || travelTime < existing {
+			bestByStop[stopID] = travelTime
+		}
+
+		for _, edge := range currentStop.edges {
+			if edge.Metadata.TransferType == WALK_EDGE && walked == "1" {
+				continue
+			}
+			newG := edge.calculateG(current.G(), tripID)
+			if newG == -1 || newG > startTime+maxTravelMinutes {
+				continue
+			}
+			var neighborKey string
+			if edge.Metadata.TransferType == WALK_EDGE {
+				neighborKey = routeState{stopID: edge.dest.label, tripID: 0, hasWalked: true}.key()
+			} else {
+				neighborKey = routeState{stopID: edge.dest.label, tripID: edge.Metadata.TripID}.key()
+			}
+			if best, exists := bestG[neighborKey]; !exists || newG < best {
+				bestG[neighborKey] = newG
+				heap.Push(&open, pq.NewItem(neighborKey, newG, newG))
+			}
+		}
+	}
+
+	graph.srcCache.Store(start.label, bestByStop)
+	return bestByStop
+}
+
 // TravelMinutes returns the local-graph travel time in minutes (A* only, no SL API).
 // Returns -1 if no route found. Results are cached.
 func (graph *SLGraph) TravelMinutes(start *Vertex, destination *Vertex, startTime int) int {

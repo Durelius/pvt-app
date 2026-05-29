@@ -14,6 +14,7 @@ type SLGraph struct {
 	verticesCount     uint32
 	edgesCount        uint32
 	travelCache       sync.Map // key: "startID:destID", value: int (minutes)
+	srcCache          sync.Map // key: startID, value: map[string]int (all reachable stop times)
 	skipAPIValidation bool
 }
 
