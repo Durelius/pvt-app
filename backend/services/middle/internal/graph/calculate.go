@@ -31,21 +31,28 @@ func (e *Edge) calculateG(currentTime int, currentTripID uint32) int {
 }
 
 func ApproxDistanceMeters(from *Stop, to *Stop) (float64, error) {
-	fromLat, err := strconv.ParseFloat(from.StopLatitude, 64)
-	if err != nil {
-		return 0, err
+	fromLat, fromLong, toLat, toLong := from.LatF, from.LonF, to.LatF, to.LonF
+	if fromLat == 0 && fromLong == 0 {
+		var err error
+		fromLat, err = strconv.ParseFloat(from.StopLatitude, 64)
+		if err != nil {
+			return 0, err
+		}
+		fromLong, err = strconv.ParseFloat(from.StopLongitude, 64)
+		if err != nil {
+			return 0, err
+		}
 	}
-	fromLong, err := strconv.ParseFloat(from.StopLongitude, 64)
-	if err != nil {
-		return 0, err
-	}
-	toLat, err := strconv.ParseFloat(to.StopLatitude, 64)
-	if err != nil {
-		return 0, err
-	}
-	toLong, err := strconv.ParseFloat(to.StopLongitude, 64)
-	if err != nil {
-		return 0, err
+	if toLat == 0 && toLong == 0 {
+		var err error
+		toLat, err = strconv.ParseFloat(to.StopLatitude, 64)
+		if err != nil {
+			return 0, err
+		}
+		toLong, err = strconv.ParseFloat(to.StopLongitude, 64)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return haversineMeters(fromLat, fromLong, toLat, toLong), nil
 }
@@ -93,30 +100,65 @@ func (graph *SLGraph) FindNearestStop(lat, lon float64) *Vertex {
 }
 
 // FindNClosestStops returns the n closest SL stops to the given coordinates, sorted by distance.
+// Uses a max-heap of size n to avoid sorting all stops.
 func (graph *SLGraph) FindNClosestStops(lat, lon float64, n int) []*Vertex {
 	type entry struct {
 		v    *Vertex
 		dist float64
 	}
-	probe := &Stop{
-		StopLatitude:  strconv.FormatFloat(lat, 'f', 6, 64),
-		StopLongitude: strconv.FormatFloat(lon, 'f', 6, 64),
+	// max-heap: farthest entry is always at the root
+	heap := make([]entry, 0, n+1)
+	pushHeap := func(e entry) {
+		heap = append(heap, e)
+		i := len(heap) - 1
+		for i > 0 {
+			parent := (i - 1) / 2
+			if heap[parent].dist >= heap[i].dist {
+				break
+			}
+			heap[parent], heap[i] = heap[i], heap[parent]
+			i = parent
+		}
 	}
-	entries := make([]entry, 0, len(graph.vertices))
+	popMax := func() {
+		last := len(heap) - 1
+		heap[0] = heap[last]
+		heap = heap[:last]
+		i := 0
+		for {
+			l, r := 2*i+1, 2*i+2
+			largest := i
+			if l < len(heap) && heap[l].dist > heap[largest].dist {
+				largest = l
+			}
+			if r < len(heap) && heap[r].dist > heap[largest].dist {
+				largest = r
+			}
+			if largest == i {
+				break
+			}
+			heap[i], heap[largest] = heap[largest], heap[i]
+			i = largest
+		}
+	}
+
 	for _, v := range graph.vertices {
 		if v.metadata == nil {
 			continue
 		}
-		dist, err := ApproxDistanceMeters(probe, v.metadata)
-		if err != nil {
-			continue
+		dist := haversineMeters(lat, lon, v.metadata.LatF, v.metadata.LonF)
+		if len(heap) < n {
+			pushHeap(entry{v, dist})
+		} else if dist < heap[0].dist {
+			popMax()
+			pushHeap(entry{v, dist})
 		}
-		entries = append(entries, entry{v, dist})
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].dist < entries[j].dist })
-	result := make([]*Vertex, 0, n)
-	for i := 0; i < n && i < len(entries); i++ {
-		result = append(result, entries[i].v)
+
+	sort.Slice(heap, func(i, j int) bool { return heap[i].dist < heap[j].dist })
+	result := make([]*Vertex, len(heap))
+	for i, e := range heap {
+		result[i] = e.v
 	}
 	return result
 }

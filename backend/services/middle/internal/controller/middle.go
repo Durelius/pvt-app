@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"sync"
 
 	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/graph"
@@ -154,49 +155,55 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 		travel = g.TravelMinutesValidated
 	}
 
-	scored := make([]scoredPlace, 0, len(candidates))
-	for _, place := range candidates {
-		placeStops := g.FindNClosestStops(place.Location.Latitude, place.Location.Longitude, nearestStopCandidates)
-		if len(placeStops) == 0 {
-			scored = append(scored, scoredPlace{place, math.MaxInt, math.MaxInt})
-			continue
-		}
+	scored := make([]scoredPlace, len(candidates))
+	var wg sync.WaitGroup
+	for i, place := range candidates {
+		wg.Add(1)
+		go func(i int, place places.Place) {
+			defer wg.Done()
+			placeStops := g.FindNClosestStops(place.Location.Latitude, place.Location.Longitude, nearestStopCandidates)
+			if len(placeStops) == 0 {
+				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt}
+				return
+			}
 
-		times := make([]int, 0, len(inputStopSets))
-		valid := true
-		for _, srcSet := range inputStopSets {
-			best := math.MaxInt
-			for _, src := range srcSet {
-				for _, dst := range placeStops {
-					if t := travel(src, dst, startTime); t >= 0 && t < best {
-						best = t
+			times := make([]int, 0, len(inputStopSets))
+			valid := true
+			for _, srcSet := range inputStopSets {
+				best := math.MaxInt
+				for _, src := range srcSet {
+					for _, dst := range placeStops {
+						if t := travel(src, dst, startTime); t >= 0 && t < best {
+							best = t
+						}
 					}
 				}
+				if best == math.MaxInt {
+					valid = false
+					break
+				}
+				times = append(times, best)
 			}
-			if best == math.MaxInt {
-				valid = false
-				break
-			}
-			times = append(times, best)
-		}
 
-		if !valid {
-			scored = append(scored, scoredPlace{place, math.MaxInt, math.MaxInt})
-			continue
-		}
+			if !valid {
+				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt}
+				return
+			}
 
-		minT, maxT, sum := times[0], times[0], 0
-		for _, t := range times {
-			if t < minT {
-				minT = t
+			minT, maxT, sum := times[0], times[0], 0
+			for _, t := range times {
+				if t < minT {
+					minT = t
+				}
+				if t > maxT {
+					maxT = t
+				}
+				sum += t
 			}
-			if t > maxT {
-				maxT = t
-			}
-			sum += t
-		}
-		scored = append(scored, scoredPlace{place, maxT - minT, sum / len(times)})
+			scored[i] = scoredPlace{place, maxT - minT, sum / len(times)}
+		}(i, place)
 	}
+	wg.Wait()
 
 	sort.Slice(scored, func(i, j int) bool {
 		si, sj := scored[i], scored[j]

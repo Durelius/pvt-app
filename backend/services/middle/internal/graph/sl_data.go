@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 
 	plog "github.com/durelius/go-prodlog"
@@ -45,8 +46,10 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		if stop.LocationType != "0" {
 			continue // skip parent stations, entrances, and other non-boarding nodes
 		}
-		v := NewVertex(stop.StopID)
 		stop.StopNameLower = strings.ToLower(stop.StopName)
+		stop.LatF, _ = strconv.ParseFloat(stop.StopLatitude, 64)
+		stop.LonF, _ = strconv.ParseFloat(stop.StopLongitude, 64)
+		v := NewVertex(stop.StopID)
 		v.SetMetadata(stop)
 		graph.AddVertex(v)
 	}

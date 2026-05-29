@@ -34,12 +34,14 @@ type StopTimes struct {
 }
 
 type Stop struct {
-	StopID        string `csv:"stop_id"`
-	StopName      string `csv:"stop_name"`
-	StopNameLower string `csv:"-"`
-	StopLatitude  string `csv:"stop_lat"`
-	StopLongitude string `csv:"stop_lon"`
-	LocationType  string `csv:"location_type"`
+	StopID        string  `csv:"stop_id"`
+	StopName      string  `csv:"stop_name"`
+	StopNameLower string  `csv:"-"`
+	StopLatitude  string  `csv:"stop_lat"`
+	StopLongitude string  `csv:"stop_lon"`
+	LocationType  string  `csv:"location_type"`
+	LatF          float64 `csv:"-"`
+	LonF          float64 `csv:"-"`
 }
 
 type Trips struct {
