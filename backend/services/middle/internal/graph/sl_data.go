@@ -13,10 +13,10 @@ import (
 )
 
 // compactStopTime stores only what edge-building needs, with times pre-parsed to
-// int16 minutes and TripID omitted (it lives as the map key instead).
-// Compared to StopTimes this cuts per-row map memory from ~99 bytes to ~41 bytes.
+// int16 minutes, TripID omitted (map key), and StopID replaced by a *Vertex pointer
+// resolved at load time. This cuts per-row map memory from ~99 bytes to 16 bytes.
 type compactStopTime struct {
-	StopID       string
+	Vertex       *Vertex
 	StopSequence int16
 	Departure    int16
 	Arrival      int16
@@ -59,7 +59,7 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 	logMem("after stops")
 
 	stopTimeMap := make(map[string][]compactStopTime, 150000)
-	if err := buildStopTimeMap(stopTimesArg, stopTimeMap); err != nil {
+	if err := buildStopTimeMap(stopTimesArg, stopTimeMap, graph); err != nil {
 		return err
 	}
 	logMem("after stopTimeMap")
@@ -82,18 +82,13 @@ func (graph *SLGraph) initFromPaths(stopTimesArg, stopsPath string) error {
 		for i := 0; i < len(times)-1; i++ {
 			from := times[i]
 			to := times[i+1]
-			fromV := graph.GetVertexByID(from.StopID)
-			toV := graph.GetVertexByID(to.StopID)
-			if fromV == nil || toV == nil {
-				continue
-			}
 			props := EdgeProperties{
 				TripID:       tid,
 				Departure:    from.Departure,
 				Arrival:      to.Arrival,
 				TransferType: COMMUTE_EDGE,
 			}
-			if _, err := graph.AddEdge(fromV, toV, props); err != nil {
+			if _, err := graph.AddEdge(from.Vertex, to.Vertex, props); err != nil {
 				return err
 			}
 		}
@@ -157,7 +152,7 @@ func (graph *SLGraph) addTransferEdges(stops []*Stop) error {
 
 // buildStopTimeMap streams stop_times CSV files one at a time into stopTimeMap,
 // converting times to int16 minutes immediately and GC'ing between files.
-func buildStopTimeMap(arg string, stopTimeMap map[string][]compactStopTime) error {
+func buildStopTimeMap(arg string, stopTimeMap map[string][]compactStopTime, g *SLGraph) error {
 	info, err := os.Stat(arg)
 	if err != nil {
 		return err
@@ -178,8 +173,12 @@ func buildStopTimeMap(arg string, stopTimeMap map[string][]compactStopTime) erro
 			return fmt.Errorf("loading %s: %w", p, err)
 		}
 		for _, st := range chunk {
+			v := g.GetVertexByID(st.StopID)
+			if v == nil {
+				continue
+			}
 			stopTimeMap[st.TripID] = append(stopTimeMap[st.TripID], compactStopTime{
-				StopID:       st.StopID,
+				Vertex:       v,
 				StopSequence: int16(st.StopSequence),
 				Departure:    int16(toMinutes(st.DepartureTime)),
 				Arrival:      int16(toMinutes(st.ArrivalTime)),
