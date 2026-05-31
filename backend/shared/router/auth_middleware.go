@@ -3,16 +3,12 @@ package standardrouter
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	plog "github.com/durelius/go-prodlog"
 	"google.golang.org/api/idtoken"
 )
-
-var validClientIDs = []string{
-	"648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
-	"169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com",
-}
 
 type UserClaims struct {
 	GoogleID string
@@ -44,14 +40,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		validAud := false
-		for _, id := range validClientIDs {
-			if payload.Audience == id {
-				validAud = true
-				break
-			}
-		}
-		if !validAud {
+		if !slices.Contains(ValidClientIDs, payload.Audience) {
 			plog.Infof("auth rejected: unrecognised audience %q", payload.Audience)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
