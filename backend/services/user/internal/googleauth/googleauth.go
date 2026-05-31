@@ -16,6 +16,7 @@ var validClientIDs = []string{
 	"648166383994-60injkuta3jv8thamge46fevoq4kjd3v.apps.googleusercontent.com",
 	"648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
 	"648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
+	"648166383994-7t78qd26534cv56uj61ep2j6ffll0ob8.apps.googleusercontent.com",
 }
 
 type GoogleProfile struct {
