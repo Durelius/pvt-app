@@ -48,6 +48,13 @@ class _HomePageState extends State<HomePage> {
     _refreshData();
   }
 
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _refreshData() async {
     if (!AuthService.instance.isLoggedIn) return;
     final results = await Future.wait([
@@ -300,6 +307,8 @@ class _HomePageState extends State<HomePage> {
                           if (value == 'close') return;
 
                           final bool isLoggedIn = AuthService.instance.isLoggedIn;
+
+                          _focusNode.unfocus();
 
                           if (value == 'profile') {
                             if (!isLoggedIn) { goToLogin(); return; }
