@@ -41,7 +41,7 @@ class _PlanPageState extends State<PlanPage> {
   AppLocation? _fetchedCurrentLocation;
   bool _hasMyAddress = false;
   bool _isFocused = false;
-  final String _homeAddressName = 'Saved home address';
+  String _homeAddressName = '';
   final homeAddressBox = Hive.box('homeAddress');
 
   List<Address> _suggestions = [];
@@ -439,6 +439,8 @@ class _PlanPageState extends State<PlanPage> {
                             final data = jsonDecode(raw as String) as Map<String, dynamic>;
                             setState(() {
                               _hasMyAddress = true;
+                              final addressName = data['name'] as String;
+                              _homeAddressName = addressName;
                               _items.add(Address(
                                 name: data['name'] as String,
                                 lat: (data['lat'] as num).toDouble(),

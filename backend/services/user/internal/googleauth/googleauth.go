@@ -3,22 +3,12 @@ package googleauth
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	plog "github.com/durelius/go-prodlog"
+	standardrouter "github.com/durelius/pvt-app/backend/shared/router"
 	"google.golang.org/api/idtoken"
 )
-
-// All valid OAuth client IDs for this app (web, iOS, Android).
-var validClientIDs = []string{
-	"648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
-	"169231317250-nc8otuvk6ic7cqii3sfdd4pbbp8ge9d7.apps.googleusercontent.com",
-	"648166383994-2s5edahe0h27fqrjp822un6ki6cneun4.apps.googleusercontent.com",
-	"648166383994-60injkuta3jv8thamge46fevoq4kjd3v.apps.googleusercontent.com",
-	"648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
-	"648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
-	"648166383994-7t78qd26534cv56uj61ep2j6ffll0ob8.apps.googleusercontent.com",
-	"648166383994-b3i5nou6oiqfu422t2p08mujd6l9i7i9.apps.googleusercontent.com",
-}
 
 type GoogleProfile struct {
 	GoogleID      string `json:"google_id"`
@@ -36,14 +26,7 @@ func VerifyGoogleToken(token string) (*GoogleProfile, error) {
 	if err != nil {
 		return nil, err
 	}
-	validAud := false
-	for _, id := range validClientIDs {
-		if payload.Audience == id {
-			validAud = true
-			break
-		}
-	}
-	if !validAud {
+	if !slices.Contains(standardrouter.ValidClientIDs, payload.Audience) {
 		return nil, fmt.Errorf("token audience %q is not a recognised client ID", payload.Audience)
 	}
 
