@@ -56,6 +56,7 @@ type Place struct {
 	Organic        bool   `json:"organic,omitempty"`
 	Noise          string `json:"-"`
 	OSMAmenity     string `json:"-"`
+	TravelTimes    []int  `json:"travelTimes,omitempty"`
 }
 
 type LocalizedText struct {

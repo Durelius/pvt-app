@@ -147,6 +147,7 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 		p := s.place
 		p.Rating = places.ComputeHeuristicRating(p, s.spread, s.avg)
+		p.TravelTimes = s.times
 		plog.Infof("ranked #%d: %s (transit %d min, rating %.1f)", i+1, p.DisplayName.Text, s.avg+s.spread, p.Rating)
 		result = append(result, p)
 	}
@@ -228,7 +229,7 @@ func scoreAndRank(ctx context.Context, candidates []places.Place, inputStopSets 
 			defer wg.Done()
 			placeStops := g.FindNClosestStops(place.Location.Latitude, place.Location.Longitude, nearestStopCandidates)
 			if len(placeStops) == 0 {
-				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt}
+				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt, nil}
 				return
 			}
 
@@ -249,7 +250,7 @@ func scoreAndRank(ctx context.Context, candidates []places.Place, inputStopSets 
 			}
 
 			if !valid {
-				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt}
+				scored[i] = scoredPlace{place, math.MaxInt, math.MaxInt, nil}
 				return
 			}
 
@@ -263,7 +264,7 @@ func scoreAndRank(ctx context.Context, candidates []places.Place, inputStopSets 
 				}
 				sum += t
 			}
-			scored[i] = scoredPlace{place, maxT - minT, sum / len(times)}
+			scored[i] = scoredPlace{place, maxT - minT, sum / len(times), times}
 		}(i, place)
 	}
 	wg.Wait()
@@ -291,6 +292,7 @@ type scoredPlace struct {
 	place  places.Place
 	spread int
 	avg    int
+	times  []int
 }
 
 // searchGrid queries Places API from 5 points (centroid + N/S/E/W offset by

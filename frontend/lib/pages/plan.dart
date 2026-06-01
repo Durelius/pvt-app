@@ -988,6 +988,7 @@ class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
     final phone = place['phone'] as String?;
     final website = place['website'] as String?;
     final tips = (place['tips'] as List?)?.cast<String>() ?? [];
+    final travelTimes = (place['travelTimes'] as List?)?.cast<int>() ?? [];
 
     showModalBottomSheet(
       context: context,
@@ -1069,6 +1070,49 @@ class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
               const SizedBox(height: 16),
               _buildAmenities(place),
               const SizedBox(height: 16),
+
+              // Travel times per person
+              if (travelTimes.isNotEmpty && travelTimes.length == _items.length) ...[
+                Row(
+                  children: [
+                    const Text(
+                      'Travel times',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'avg ${(travelTimes.reduce((a, b) => a + b) / travelTimes.length).round()} min',
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ...List.generate(travelTimes.length, (i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.directions_transit, size: 16, color: kPurple),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _items[i].name,
+                          style: const TextStyle(fontSize: 13, color: Colors.black87),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '${travelTimes[i]} min',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: kPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 6),
+              ],
 
               // Address
               _infoRow(Icons.location_on_outlined, address),
