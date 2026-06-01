@@ -694,86 +694,95 @@ class _PlanPageState extends State<PlanPage> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black12)],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Recommended places',
-                          style: TextStyle(
-                            color: kPurple,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: () => setState(() => _results = []),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.arrow_back,
-                                color: kPurple.withValues(alpha: 0.5),
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Back',
-                                style: TextStyle(
-                                  color: kPurple.withValues(alpha: 0.5),
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        ListView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          itemCount: _results.length,
-                          itemBuilder: (_, i) => _buildPlaceCard(_results[i]),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          height: 72,
-                          child: IgnorePointer(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.white.withValues(alpha: 0),
-                                    Colors.white,
-                                  ],
+                  CustomScrollView(
+                    controller: scrollController,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 10),
+                                width: 36,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
                             ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                              child: Row(
+                                children: [
+                                  const Text(
+                                    'Recommended places',
+                                    style: TextStyle(
+                                      color: kPurple,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  GestureDetector(
+                                    onTap: () => setState(() => _results = []),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_back,
+                                          color: kPurple.withValues(alpha: 0.5),
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Back',
+                                          style: TextStyle(
+                                            color: kPurple.withValues(alpha: 0.5),
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                        sliver: SliverList.builder(
+                          itemCount: _results.length,
+                          itemBuilder: (_, i) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _buildPlaceCard(_results[i]),
                           ),
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 72,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white.withValues(alpha: 0),
+                              Colors.white,
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -797,7 +806,6 @@ class _PlanPageState extends State<PlanPage> {
     return GestureDetector(
       onTap: () => _showPlaceSheet(context, place),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: kPurple,
           borderRadius: BorderRadius.circular(16),
