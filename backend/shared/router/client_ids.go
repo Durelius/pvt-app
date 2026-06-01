@@ -8,4 +8,7 @@ var ValidClientIDs = []string{
 	"648166383994-2s5edahe0h27fqrjp822un6ki6cneun4.apps.googleusercontent.com",
 	"648166383994-60injkuta3jv8thamge46fevoq4kjd3v.apps.googleusercontent.com",
 	"648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
+	"648166383994-cjdcvd4s66l8uuf84nn7gs2lqh1r1jva.apps.googleusercontent.com",
+	"648166383994-7t78qd26534cv56uj61ep2j6ffll0ob8.apps.googleusercontent.com",
+	"648166383994-b3i5nou6oiqfu422t2p08mujd6l9i7i9.apps.googleusercontent.com",
 }
