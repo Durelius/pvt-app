@@ -19,6 +19,7 @@ const Color kPurple = Color(0xFF63519F);
 
 final Box recentSearches = Hive.box('recentSearches');
 final homeAddressBox = Hive.box('homeAddress');
+String _locationType = 'cafe';
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
@@ -163,7 +164,7 @@ class _PlanPageState extends State<PlanPage> {
         _items.map((a) => {'lat': a.lat, 'lon': a.lon}).toList(),
       );
       final uri = Uri.parse('$apiBase/middle/v1/middleplaces').replace(
-        queryParameters: {'points': pointsJson, 'location_type': 'cafe'},
+        queryParameters: {'points': pointsJson, 'location_type': _locationType},
       );
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -465,6 +466,26 @@ class _PlanPageState extends State<PlanPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // NY KNAPP:
+              OutlinedButton(
+                onPressed: _showLocationTypePicker,
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: kPurple),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_locationTypeIcon(_locationType), size: 16, color: kPurple),
+                    const SizedBox(width: 4),
+                    Icon(Icons.expand_more, size: 16, color: kPurple),
+                  ],
                 ),
               ),
             ],
@@ -856,6 +877,17 @@ class _PlanPageState extends State<PlanPage> {
     );
   }
 
+  IconData _locationTypeIcon(String type) {
+    switch (type) {
+      case 'restaurant': return Icons.restaurant;
+      case 'bar': return Icons.local_bar;
+      case 'park': return Icons.park;
+      case 'library': return Icons.local_library;
+      case 'cinema': return Icons.movie;
+      default: return Icons.coffee;
+    }
+  }
+
   Widget _openBadge(bool isOpen) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
@@ -1116,6 +1148,96 @@ class _PlanPageState extends State<PlanPage> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showLocationTypePicker() {
+    final options = [
+      {'value': 'cafe', 'label': 'Café', 'icon': Icons.coffee},
+      {'value': 'restaurant', 'label': 'Restaurant', 'icon': Icons.restaurant},
+      {'value': 'bar', 'label': 'Bar', 'icon': Icons.local_bar},
+      {'value': 'park', 'label': 'Park', 'icon': Icons.park},
+      {'value': 'library', 'label': 'Library', 'icon': Icons.local_library},
+      {'value': 'cinema', 'label': 'Cinema', 'icon': Icons.movie},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'What kind of place?',
+              style: TextStyle(
+                color: kPurple,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: options.map((opt) {
+                final selected = _locationType == opt['value'];
+                return GestureDetector(
+                  onTap: () {
+                    setState(() => _locationType = opt['value'] as String);
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: selected ? kPurple : kPurple.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: selected ? kPurple : kPurple.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          opt['icon'] as IconData,
+                          size: 16,
+                          color: selected ? Colors.white : kPurple,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          opt['label'] as String,
+                          style: TextStyle(
+                            color: selected ? Colors.white : kPurple,
+                            fontSize: 14,
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
   // ---- Lägg till längst ner i _PlanPageState, bland hjälpmetoderna ----
