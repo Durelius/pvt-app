@@ -158,18 +158,8 @@ func NearbyOverPass(point location.Point, locationType string, radiusMeters floa
 	return NearbyOverPassMulti([]location.Point{point}, locationType, radiusMeters)
 }
 
-func NearbyOverPassMulti(points []location.Point, locationType string, radiusMeters float64) ([]Place, error) {
-	var sb strings.Builder
-	sb.WriteString("[out:json][timeout:25];\n(\n")
-	for _, p := range points {
-		for _, tag := range []string{"amenity", "shop"} {
-			fmt.Fprintf(&sb, "  node[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
-			fmt.Fprintf(&sb, "  way[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
-		}
-	}
-	sb.WriteString(");\nout center 100;\n")
-	query := sb.String()
-
+// fetchOverpass races all Overpass endpoints and returns the first successful response.
+func fetchOverpass(query string) (OverpassResponse, error) {
 	type attempt struct {
 		result OverpassResponse
 		err    error
@@ -195,15 +185,12 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 				ch <- attempt{err: fmt.Errorf("do request (%s): %w", endpoint, err)}
 				return
 			}
-
 			if resp.StatusCode != http.StatusOK {
-				b, _ := io.ReadAll(resp.Body)
 				resp.Body.Close()
 				plog.Infof("overpass: %s returned %d", endpoint, resp.StatusCode)
-				ch <- attempt{err: fmt.Errorf("API error %d from %s: %s", resp.StatusCode, endpoint, b)}
+				ch <- attempt{err: fmt.Errorf("overpass %s: status %d", endpoint, resp.StatusCode)}
 				return
 			}
-
 			var r OverpassResponse
 			err = json.NewDecoder(resp.Body).Decode(&r)
 			resp.Body.Close()
@@ -215,10 +202,7 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 		}(ep)
 	}
 
-	var (
-		result  OverpassResponse
-		lastErr error
-	)
+	var lastErr error
 	for range overpassEndpoints {
 		a := <-ch
 		if a.err != nil {
@@ -226,9 +210,34 @@ func NearbyOverPassMulti(points []location.Point, locationType string, radiusMet
 			continue
 		}
 		cancel()
-		result = a.result
-		lastErr = nil
-		break
+		return a.result, nil
+	}
+	return OverpassResponse{}, lastErr
+}
+
+func NearbyOverPassMulti(points []location.Point, locationType string, radiusMeters float64) ([]Place, error) {
+	var sb strings.Builder
+	sb.WriteString("[out:json][timeout:25];\n(\n")
+	for _, p := range points {
+		for _, tag := range []string{"amenity", "shop"} {
+			fmt.Fprintf(&sb, "  node[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
+			fmt.Fprintf(&sb, "  way[\"%s\"=\"%s\"](around:%.0f,%.6f,%.6f);\n", tag, locationType, radiusMeters, p.Latitude, p.Longitude)
+		}
+	}
+	sb.WriteString(");\nout center 100;\n")
+	query := sb.String()
+
+	var result OverpassResponse
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			plog.Infof("overpass: all endpoints failed, retrying (attempt %d)", attempt+1)
+			time.Sleep(time.Second)
+		}
+		result, lastErr = fetchOverpass(query)
+		if lastErr == nil {
+			break
+		}
 	}
 	if lastErr != nil {
 		return nil, lastErr
