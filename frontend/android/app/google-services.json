@@ -38,6 +38,14 @@
           }
         },
         {
+          "client_id": "648166383994-b3i5nou6oiqfu422t2p08mujd6l9i7i9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mitten",
+            "certificate_hash": "890e1c88750269f8daa3249f1ef95a5c5f321a38"
+          }
+        },
+        {
           "client_id": "648166383994-8l68bnq765b15egumi92q9o0q7hagq4q.apps.googleusercontent.com",
           "client_type": 3
         }
