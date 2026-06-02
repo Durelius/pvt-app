@@ -662,6 +662,29 @@ class _PlanPageState extends State<PlanPage> {
                   )
                   .toList(),
             ),
+            MarkerLayer(
+              markers: _items
+                  .map((item) => Marker(
+                        point: LatLng(item.lat, item.lon),
+                        width: 120,
+                        height: 60,
+                        child: Column(
+                          children: [
+                            const Icon(Icons.place, color: Colors.amber, size: 28),
+                            Container(
+                              color: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                item.name.split(',').first,
+                                style: const TextStyle(fontSize: 10),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
           ],
         ),
 
