@@ -380,112 +380,95 @@ class _PlanPageState extends State<PlanPage> {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: (_hasCurrentLocation || _isLoadingLocation)
-                      ? null
-                      : () async {
-                          setState(() => _isLoadingLocation = true);
-                          try {
-                            final loc = await LocationService().getCurrentLocation();
-                            if (!mounted) return;
-                            setState(() {
-                              _fetchedCurrentLocation = loc;
-                              _hasCurrentLocation = true;
-                              _isLoadingLocation = false;
-                            });
-                            _resolveCurrentAddress(loc.latitude, loc.longitude);
-                          } catch (e) {
-                            if (!mounted) return;
-                            setState(() => _isLoadingLocation = false);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
-                            );
-                          }
-                        },
-                  icon: _isLoadingLocation
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: kPurple),
-                        )
-                      : const Icon(Icons.my_location, size: 16, color: kPurple),
-                  label: const Text(
-                    'Use current location',
-                    style: TextStyle(color: kPurple, fontSize: 13),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kPurple),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: (_hasCurrentLocation || _isLoadingLocation) ? null : () async {
+                      setState(() => _isLoadingLocation = true);
+                      try {
+                        final loc = await LocationService().getCurrentLocation();
+                        if (!mounted) return;
+                        setState(() {
+                          _fetchedCurrentLocation = loc;
+                          _hasCurrentLocation = true;
+                          _isLoadingLocation = false;
+                        });
+                        _resolveCurrentAddress(loc.latitude, loc.longitude);
+                      } catch (e) {
+                        if (!mounted) return;
+                        setState(() => _isLoadingLocation = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                      }
+                    },
+                    icon: _isLoadingLocation
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kPurple))
+                        : const Icon(Icons.my_location, size: 16, color: kPurple),
+                    label: const Text('Current location', style: TextStyle(color: kPurple, fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: kPurple),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _hasMyAddress
-                      ? null
-                      : () {
-                          final raw = homeAddressBox.get('homeAddress');
-                          if (raw == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No home address saved in profile')),
-                            );
-                            return;
-                          }
-                          try {
-                            final data = jsonDecode(raw as String) as Map<String, dynamic>;
-                            setState(() {
-                              _hasMyAddress = true;
-                              final addressName = data['name'] as String;
-                              _homeAddressName = addressName;
-                              _items.add(Address(
-                                name: data['name'] as String,
-                                lat: (data['lat'] as num).toDouble(),
-                                lon: (data['lon'] as num).toDouble(),
-                              ));
-                            });
-                          } catch (_) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('No home address saved in profile')),
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.home_outlined, size: 16, color: kPurple),
-                  label: const Text(
-                    'Use my address',
-                    style: TextStyle(color: kPurple, fontSize: 13),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kPurple),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: OutlinedButton.icon(
+                    onPressed: _hasMyAddress ? null : () {
+                      final raw = homeAddressBox.get('homeAddress');
+                      if (raw == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No home address saved in profile')));
+                        return;
+                      }
+                      try {
+                        final data = jsonDecode(raw as String) as Map<String, dynamic>;
+                        setState(() {
+                          _hasMyAddress = true;
+                          _homeAddressName = data['name'] as String;
+                          _items.add(Address(
+                            name: data['name'] as String,
+                            lat: (data['lat'] as num).toDouble(),
+                            lon: (data['lon'] as num).toDouble(),
+                          ));
+                        });
+                      } catch (_) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No home address saved in profile')));
+                      }
+                    },
+                    icon: const Icon(Icons.home_outlined, size: 16, color: kPurple),
+                    label: const Text('My address', style: TextStyle(color: kPurple, fontSize: 13)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: kPurple),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              // NY KNAPP:
-              OutlinedButton(
-                onPressed: _showLocationTypePicker,
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: kPurple),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: OutlinedButton(
+                  onPressed: _showLocationTypePicker,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kPurple),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_locationTypeIcon(_locationType), size: 16, color: kPurple),
-                    const SizedBox(width: 4),
-                    Icon(Icons.expand_more, size: 16, color: kPurple),
-                  ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_locationTypeIcon(_locationType), size: 16, color: kPurple),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.expand_more, size: 16, color: kPurple),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -1248,7 +1231,6 @@ class _PlanPageState extends State<PlanPage> {
       ),
     );
   }
-  // ---- Lägg till längst ner i _PlanPageState, bland hjälpmetoderna ----
 
   Widget _buildAmenities(Map<String, dynamic> place) {
     final chips = <_AmenityChip>[];
