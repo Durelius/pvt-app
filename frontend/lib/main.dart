@@ -144,7 +144,10 @@ class _MainShellState extends State<MainShell> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          pages[_currentIndex],
+          IndexedStack(
+            index: _currentIndex,
+            children: pages,
+          ),
           Positioned(
             bottom: 0,
             left: 0,
