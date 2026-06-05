@@ -30,7 +30,7 @@ class PlanPage extends StatefulWidget {
   State<PlanPage> createState() => _PlanPageState();
 }
 
-class _PlanPageState extends State<PlanPage> {
+class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
   final Debouncer _debouncer = Debouncer();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -53,6 +53,8 @@ class _PlanPageState extends State<PlanPage> {
   int _searchVersion = 0;
   List<dynamic> _results = [];
   bool _isLoading = false;
+  List<Map<String, dynamic>> _groupSuggestions = [];
+
 
   @override
   void initState() {
@@ -104,16 +106,28 @@ class _PlanPageState extends State<PlanPage> {
       _searchTerm = value;
       final term = _searchTerm.trim();
       if (term.length < 2) {
-        setState(() { _suggestions = []; _friendSuggestions = []; });
+        setState(() { _suggestions = []; _friendSuggestions = []; _groupSuggestions = []; });
         return;
       }
 
-      final matchingFriends = _friends
-          .where((f) => f.name.toLowerCase().contains(term.toLowerCase()))
+      // Grupper
+      final groupBox = Hive.box('savedGroups');
+      final matchingGroups = groupBox.keys
+          .map((k) => groupBox.get(k) as Map)
+          .where((g) => (g['name'] as String).toLowerCase().contains(term.toLowerCase()))
+          .map((g) => {'name': g['name'] as String, 'addresses': g['addresses'] as List})
           .toList();
 
+      final matchingFriends = _friends
+        .where((f) => f.name.toLowerCase().contains(term.toLowerCase()))
+        .toList();
+
       if (term.length < 4) {
-        setState(() { _suggestions = []; _friendSuggestions = matchingFriends; });
+        setState(() {
+          _suggestions = [];
+          _friendSuggestions = matchingFriends;
+          _groupSuggestions = matchingGroups;
+        });
         return;
       }
 
@@ -123,6 +137,7 @@ class _PlanPageState extends State<PlanPage> {
         setState(() {
           _suggestions = results;
           _friendSuggestions = matchingFriends;
+          _groupSuggestions = matchingGroups;
         });
       }
     });
@@ -149,6 +164,7 @@ class _PlanPageState extends State<PlanPage> {
       _items.add(address);
       _suggestions = [];
       _friendSuggestions = [];
+      _groupSuggestions = [];
       _searchTerm = '';
       _controller.clear();
     });
@@ -200,6 +216,7 @@ class _PlanPageState extends State<PlanPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return ColoredBox(
       color: Colors.white,
       child: SafeArea(
@@ -246,6 +263,7 @@ class _PlanPageState extends State<PlanPage> {
                       _searchTerm = '';
                       _suggestions = [];
                       _friendSuggestions = [];
+                      _groupSuggestions = [];
                       _focusNode.unfocus();
                     }),
                     child: const Icon(
@@ -284,6 +302,7 @@ class _PlanPageState extends State<PlanPage> {
                           _searchTerm = '';
                           _suggestions = [];
                           _friendSuggestions = [];
+                          _groupSuggestions = [];
                         })
                       : null,
                   child: Icon(
@@ -295,7 +314,7 @@ class _PlanPageState extends State<PlanPage> {
               ],
             ),
           ),
-          if (_friendSuggestions.isNotEmpty || _suggestions.isNotEmpty)
+          if (_friendSuggestions.isNotEmpty || _suggestions.isNotEmpty || _groupSuggestions.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: 6),
               decoration: BoxDecoration(
@@ -312,15 +331,44 @@ class _PlanPageState extends State<PlanPage> {
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _friendSuggestions.length + _suggestions.length,
+                itemCount: _groupSuggestions.length + _friendSuggestions.length + _suggestions.length,
                 separatorBuilder: (context, index) => Divider(
                   height: 1,
                   color: Colors.white.withValues(alpha: 0.15),
                   indent: 52,
                 ),
                 itemBuilder: (context, i) {
-                  if (i < _friendSuggestions.length) {
-                    final friend = _friendSuggestions[i];
+                  // Grupper först
+                  if (i < _groupSuggestions.length) {
+                    final group = _groupSuggestions[i];
+                    final count = (group['addresses'] as List).length;
+                    return ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.groups, color: Colors.white70, size: 22),
+                      title: Text(
+                        group['name'] as String,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        '$count addresses',
+                        style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.65)),
+                      ),
+                      trailing: Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.add, color: Colors.white, size: 17),
+                      ),
+                      onTap: () => _selectGroup(group),
+                    );
+                  }
+
+                  // Sedan vänner
+                  final afterGroups = i - _groupSuggestions.length;
+                  if (afterGroups < _friendSuggestions.length) {
+                    final friend = _friendSuggestions[afterGroups];
                     return ListTile(
                       dense: true,
                       leading: const Icon(Icons.person, color: Colors.white70, size: 22),
@@ -349,7 +397,7 @@ class _PlanPageState extends State<PlanPage> {
                       onTap: () => _selectFriend(friend),
                     );
                   }
-                  final idx = i - _friendSuggestions.length;
+                  final idx = i - _groupSuggestions.length - _friendSuggestions.length;
                   final parts = _suggestions[idx].name.split(',');
                   final street = parts.first.trim();
                   final rest = parts.skip(1).join(',').trim();
@@ -1254,6 +1302,23 @@ class _PlanPageState extends State<PlanPage> {
       ),
     );
   }
+  void _selectGroup(Map<String, dynamic> group) {
+    _searchVersion++;
+    _focusNode.unfocus();
+    final addresses = decodeItems(group['addresses'] as List);
+    setState(() {
+      for (final a in addresses) {
+        if (!_items.any((e) => e.lat == a.lat && e.lon == a.lon)) {
+          _items.add(a);
+        }
+      }
+      _suggestions = [];
+      _friendSuggestions = [];
+      _groupSuggestions = [];
+      _searchTerm = '';
+      _controller.clear();
+    });
+  }
 
   Widget _buildAmenities(Map<String, dynamic> place) {
     final chips = <_AmenityChip>[];
@@ -1390,6 +1455,8 @@ class _PlanPageState extends State<PlanPage> {
       ),
     );
   }
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class RecentSearch {
