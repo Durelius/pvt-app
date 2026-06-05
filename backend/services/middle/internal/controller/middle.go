@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 	"time"
+	"context"
 
 	plog "github.com/durelius/go-prodlog"
 	"github.com/durelius/pvt-app/backend/services/middle/internal/graph"
@@ -26,6 +27,9 @@ const (
 )
 
 func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 12*time.Second)
+	defer cancel()
+
 	rawAddresses := r.URL.Query().Get("addresses")
 	rawPoints := r.URL.Query().Get("points")
 	if rawAddresses == "" && rawPoints == "" {
@@ -104,28 +108,35 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 		plog.Infof("overpass took %dms, %d candidates", time.Since(t0).Milliseconds(), len(candidates))
 
 		t1 := time.Now()
-		ranked = scoreAndRank(candidates, inputStopSets, g, *centroid, false)
-		plog.Infof("scoring %d candidates took %dms", len(candidates), time.Since(t1).Milliseconds())
+		var partial bool
+		ranked, partial = scoreAndRank(ctx, candidates, inputStopSets, g, *centroid, false)
+		plog.Infof("scoring %d candidates took %dms (partial=%v)", len(candidates), time.Since(t1).Milliseconds(), partial)
+
+		if partial {
+			break
+		}
 
 		bestSpread := math.MaxInt
 		if len(ranked) > 0 {
 			bestSpread = ranked[0].spread
 		}
-
 		if bestSpread <= spreadThreshold || radius >= maxSearchRadius {
 			break
 		}
-
 		radius = math.Min(radius*2, maxSearchRadius)
 		plog.Infof("spread %d min exceeds threshold, expanding grid radius to %.0f m", bestSpread, radius)
 	}
 
-	// Final SL API validation pass if spread is still above threshold
 	if len(ranked) > 0 && ranked[0].spread > spreadThreshold && ranked[0].spread < math.MaxInt {
-		plog.Infof("spread %d min after radius expansion, retrying with SL API validation", ranked[0].spread)
-		validated := scoreAndRank(candidates, inputStopSets, g, *centroid, true)
-		if len(validated) > 0 && validated[0].spread < ranked[0].spread {
-			ranked = validated
+		select {
+		case <-ctx.Done():
+			plog.Warning("skipping SL API validation pass, context deadline exceeded")
+		default:
+			plog.Infof("spread %d min after radius expansion, retrying with SL API validation", ranked[0].spread)
+			validated, _ := scoreAndRank(ctx, candidates, inputStopSets, g, *centroid, true)
+			if len(validated) > 0 && validated[0].spread < ranked[0].spread {
+				ranked = validated
+			}
 		}
 	}
 
@@ -149,35 +160,35 @@ func MiddleEndpoint(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-type scoredPlace struct {
-	place  places.Place
-	spread int
-	avg    int
-}
-
-func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, centroid location.Point, validate bool) []scoredPlace {
+func scoreAndRank(ctx context.Context, candidates []places.Place, inputStopSets [][]*graph.Vertex, g *graph.SLGraph, centroid location.Point, validate bool) ([]scoredPlace, bool) {
 	if len(candidates) > maxScoredCandidates {
 		sort.Slice(candidates, func(i, j int) bool {
 			return approxDistSq(centroid.Latitude, centroid.Longitude, candidates[i].Location.Latitude, candidates[i].Location.Longitude) <
-				approxDistSq(centroid.Latitude, centroid.Longitude, candidates[j].Location.Latitude, candidates[j].Location.Longitude)
+    			approxDistSq(centroid.Latitude, centroid.Longitude, candidates[j].Location.Latitude, candidates[j].Location.Longitude)
 		})
 		candidates = candidates[:maxScoredCandidates]
 	}
 
-	// Build per-source distance maps once via full Dijkstra, then look up O(1).
-	// Falls back to per-pair A* only on validate pass (needs SL API cross-check).
 	type distMap = map[uint32]int
 	var srcMaps []distMap
+	allComplete := true
+
 	if !validate {
 		srcMaps = make([]distMap, len(inputStopSets))
 		var wgDijk sync.WaitGroup
+		var mu sync.Mutex
 		for i, srcSet := range inputStopSets {
 			wgDijk.Add(1)
 			go func(i int, srcSet []*graph.Vertex) {
 				defer wgDijk.Done()
 				merged := make(distMap)
 				for _, src := range srcSet {
-					dm := g.AllTravelTimesFrom(src, startTime)
+					dm, complete := g.AllTravelTimesFrom(ctx, src, startTime)
+					if !complete {
+						mu.Lock()
+						allComplete = false
+						mu.Unlock()
+					}
 					for stopIdx, t := range dm {
 						if existing, ok := merged[stopIdx]; !ok || t < existing {
 							merged[stopIdx] = t
@@ -197,7 +208,6 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 			}
 			return -1
 		}
-		// validate pass: best across the 3 nearest source stops
 		best := math.MaxInt
 		for _, src := range inputStopSets[srcIdx] {
 			if t := g.TravelMinutesValidated(src, dst, startTime); t >= 0 && t < best {
@@ -270,12 +280,17 @@ func scoreAndRank(candidates []places.Place, inputStopSets [][]*graph.Vertex, g 
 		if scoreI != scoreJ {
 			return scoreI < scoreJ
 		}
-		// Tiebreak: prefer the place closest to the centroid.
 		distI := approxDistSq(centroid.Latitude, centroid.Longitude, si.place.Location.Latitude, si.place.Location.Longitude)
 		distJ := approxDistSq(centroid.Latitude, centroid.Longitude, sj.place.Location.Latitude, sj.place.Location.Longitude)
 		return distI < distJ
 	})
-	return scored
+	return scored, allComplete
+}
+
+type scoredPlace struct {
+	place  places.Place
+	spread int
+	avg    int
 }
 
 // searchGrid queries Places API from 5 points (centroid + N/S/E/W offset by

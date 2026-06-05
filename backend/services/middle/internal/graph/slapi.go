@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"context"
 )
 
 var slClient = &http.Client{Timeout: 5 * time.Second}
@@ -20,18 +21,18 @@ const slJourneyPlannerURL = "https://journeyplanner.integration.sl.se/v2/trips?t
 
 // slPointSearch calls the SL Journey Planner API with coordinates and returns travel time in minutes.
 // Coordinates must be in WGS84 and are formatted as "lon:lat:WGS84[dd.ddddd]" per API spec.
-func slPointSearch(fromLat, fromLon, toLat, toLon float64) (int, error) {
-	from := fmt.Sprintf("%f:%f:WGS84[dd.ddddd]", fromLon, fromLat)
-	to := fmt.Sprintf("%f:%f:WGS84[dd.ddddd]", toLon, toLat)
-	query := fmt.Sprintf(slJourneyPlannerURL, "coord", url.QueryEscape(from), "coord", url.QueryEscape(to))
+func slPointSearch(ctx context.Context, fromLat, fromLon, toLat, toLon float64) (int, error) {
+    from := fmt.Sprintf("%f:%f:WGS84[dd.ddddd]", fromLon, fromLat)
+    to := fmt.Sprintf("%f:%f:WGS84[dd.ddddd]", toLon, toLat)
+    query := fmt.Sprintf(slJourneyPlannerURL, "coord", url.QueryEscape(from), "coord", url.QueryEscape(to))
 
-	req, err := http.NewRequest("GET", query, nil)
-	if err != nil {
-		return 0, err
-	}
-	req.Header.Set("User-Agent", "MITTEN")
+    req, err := http.NewRequestWithContext(ctx, "GET", query, nil)
+    if err != nil {
+        return 0, err
+    }
+    req.Header.Set("User-Agent", "MITTEN")
 
-	resp, err := slClient.Do(req)
+    resp, err := slClient.Do(req)
 	if err != nil {
 		return 0, err
 	}

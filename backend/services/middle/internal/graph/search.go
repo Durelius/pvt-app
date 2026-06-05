@@ -1,14 +1,16 @@
 package graph
 
 import (
-	"container/heap"
-	"math"
-	"slices"
-	"sort"
-	"strings"
+    "container/heap"
+    "context"
+    "math"
+    "slices"
+    "sort"
+    "strings"
+    "time"
 
-	plog "github.com/durelius/go-prodlog"
-	pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
+    plog "github.com/durelius/go-prodlog"
+    pq "github.com/durelius/pvt-app/backend/services/middle/internal/priority_queue"
 )
 
 const maxTravelMinutes = 60
@@ -165,14 +167,16 @@ func (graph *SLGraph) travelMinutes(start *Vertex, destination *Vertex, startTim
 }
 
 func (graph *SLGraph) fetchSLAPIMinutes(start, destination *Vertex) int {
-	sm := start.Metadata()
-	dm := destination.Metadata()
-	minutes, err := slPointSearch(sm.LatF, sm.LonF, dm.LatF, dm.LonF)
-	if err != nil {
-		plog.Warningf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
-		return -1
-	}
-	return minutes
+    sm := start.Metadata()
+    dm := destination.Metadata()
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    minutes, err := slPointSearch(ctx, sm.LatF, sm.LonF, dm.LatF, dm.LonF)
+    if err != nil {
+        plog.Warningf("SL API fallback failed (%s→%s): %v", sm.StopName, dm.StopName, err)
+        return -1
+    }
+    return minutes
 }
 
 func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes int) int {
@@ -195,64 +199,80 @@ func (graph *SLGraph) validateWithSLAPI(start, destination *Vertex, localMinutes
 // minutes to every reachable stop within maxTravelMinutes. Uses value-typed priority
 // queue items (no per-item heap allocation) and struct state keys (no string allocs).
 // Results are cached in srcCache keyed by vertex index.
-func (graph *SLGraph) AllTravelTimesFrom(start *Vertex, startTime int) map[uint32]int {
-	if cached, ok := graph.srcCache.Load(start.idx); ok {
-		return cached.(map[uint32]int)
-	}
+// AllTravelTimesFrom kör Dijkstra från start med en deadline via ctx.
+// Om ctx avbryts returneras partiella resultat (allt som hann beräknas).
+// Fullständiga resultat cachas som tidigare; partiella cachas inte.
+func (graph *SLGraph) AllTravelTimesFrom(ctx context.Context, start *Vertex, startTime int) (map[uint32]int, bool) {
+    if cached, ok := graph.srcCache.Load(start.idx); ok {
+        return cached.(map[uint32]int), true
+    }
 
-	open := make(pq.PriorityQueue, 0, 4096)
-	heap.Init(&open)
+    open := make(pq.PriorityQueue, 0, 4096)
+    heap.Init(&open)
 
-	startKey := pq.MakeKey(start.idx, 0, false)
-	heap.Push(&open, pq.Item{Key: startKey, G: startTime, F: startTime})
+    startKey := pq.MakeKey(start.idx, 0, false)
+    heap.Push(&open, pq.Item{Key: startKey, G: startTime, F: startTime})
 
-	closed := make(map[pq.StateKey]bool, 32768)
-	bestG := make(map[pq.StateKey]int, 32768)
-	bestG[startKey] = startTime
-	bestByStop := make(map[uint32]int, 4096)
+    closed := make(map[pq.StateKey]bool, 32768)
+    bestG := make(map[pq.StateKey]int, 32768)
+    bestG[startKey] = startTime
+    bestByStop := make(map[uint32]int, 4096)
 
-	for len(open) > 0 {
-		current := heap.Pop(&open).(pq.Item)
-		curKey := current.Key
+    iterations := 0
+    for len(open) > 0 {
+        // Kolla ctx var 256:e iteration – billigt nog att inte påverka prestanda
+        iterations++
+        if iterations%256 == 0 {
+            select {
+            case <-ctx.Done():
+                plog.Warningf("AllTravelTimesFrom: timeout after %d iterations from %s, returning partial results (%d stops)",
+                    iterations, start.Metadata().StopName, len(bestByStop))
+                return bestByStop, false // false = partiellt
+            default:
+            }
+        }
 
-		if closed[curKey] {
-			continue
-		}
-		closed[curKey] = true
+        current := heap.Pop(&open).(pq.Item)
+        curKey := current.Key
 
-		stopIdx := curKey.VertexIdx()
-		travelTime := current.G - startTime
-		if existing, ok := bestByStop[stopIdx]; !ok || travelTime < existing {
-			bestByStop[stopIdx] = travelTime
-		}
+        if closed[curKey] {
+            continue
+        }
+        closed[curKey] = true
 
-		currentStop := graph.vertexByIdx[stopIdx]
-		walked := curKey.Walked()
-		tripID := curKey.Trip
+        stopIdx := curKey.VertexIdx()
+        travelTime := current.G - startTime
+        if existing, ok := bestByStop[stopIdx]; !ok || travelTime < existing {
+            bestByStop[stopIdx] = travelTime
+        }
 
-		for _, edge := range currentStop.edges {
-			if edge.Metadata.TransferType == WALK_EDGE && walked {
-				continue
-			}
-			newG := edge.calculateG(current.G, tripID)
-			if newG == -1 || newG > startTime+maxTravelMinutes {
-				continue
-			}
-			var neighborKey pq.StateKey
-			if edge.Metadata.TransferType == WALK_EDGE {
-				neighborKey = pq.MakeKey(edge.dest.idx, 0, true)
-			} else {
-				neighborKey = pq.MakeKey(edge.dest.idx, edge.Metadata.TripID, false)
-			}
-			if best, exists := bestG[neighborKey]; !exists || newG < best {
-				bestG[neighborKey] = newG
-				heap.Push(&open, pq.Item{Key: neighborKey, G: newG, F: newG})
-			}
-		}
-	}
+        currentStop := graph.vertexByIdx[stopIdx]
+        walked := curKey.Walked()
+        tripID := curKey.Trip
 
-	graph.srcCache.Store(start.idx, bestByStop)
-	return bestByStop
+        for _, edge := range currentStop.edges {
+            if edge.Metadata.TransferType == WALK_EDGE && walked {
+                continue
+            }
+            newG := edge.calculateG(current.G, tripID)
+            if newG == -1 || newG > startTime+maxTravelMinutes {
+                continue
+            }
+            var neighborKey pq.StateKey
+            if edge.Metadata.TransferType == WALK_EDGE {
+                neighborKey = pq.MakeKey(edge.dest.idx, 0, true)
+            } else {
+                neighborKey = pq.MakeKey(edge.dest.idx, edge.Metadata.TripID, false)
+            }
+            if best, exists := bestG[neighborKey]; !exists || newG < best {
+                bestG[neighborKey] = newG
+                heap.Push(&open, pq.Item{Key: neighborKey, G: newG, F: newG})
+            }
+        }
+    }
+
+    graph.srcCache.Store(start.idx, bestByStop)
+    return bestByStop, true // true = komplett
 }
 
 func (graph *SLGraph) FindStopsByName(name string) []*Vertex {
