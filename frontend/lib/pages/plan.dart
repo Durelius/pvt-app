@@ -23,14 +23,13 @@ String _locationType = 'cafe';
 
 class PlanPage extends StatefulWidget {
   final AppLocation? currentLocation;
-  final List<Address>? prefilledAddresses;
-  const PlanPage({super.key, this.currentLocation, this.prefilledAddresses});
+  const PlanPage({super.key, this.currentLocation});
 
   @override
-  State<PlanPage> createState() => _PlanPageState();
+  State<PlanPage> createState() => PlanPageState();
 }
 
-class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
+class PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
   final Debouncer _debouncer = Debouncer();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -60,18 +59,8 @@ class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
   void initState() {
     super.initState();
 
-    if (widget.prefilledAddresses != null) {
-      _items.addAll(widget.prefilledAddresses!);
-    }
-
     if (AuthService.instance.isLoggedIn) _loadFriends();
 
-    /*final lat = widget.currentLocation?.latitude ?? 0;
-    final lng = widget.currentLocation?.longitude ?? 0;
-    if (lat == 0 || lng == 0) return;
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _resolveCurrentAddress(lat, lng),
-    );*/
     _focusNode.addListener(() {
       setState(() {
         _isFocused = _focusNode.hasFocus;
@@ -140,6 +129,17 @@ class _PlanPageState extends State<PlanPage> with AutomaticKeepAliveClientMixin{
           _groupSuggestions = matchingGroups;
         });
       }
+    });
+  }
+
+  void loadAddresses(List<Address> addresses) {
+    setState(() {
+      _items.clear();
+      _items.addAll(addresses);
+      _results = [];
+      _hasMyAddress = false;
+      _hasCurrentLocation = false;
+      _fetchedCurrentLocation = null;
     });
   }
 

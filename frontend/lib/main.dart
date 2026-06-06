@@ -100,8 +100,8 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   AppLocation? _currentLocation;
-  List<Address>? _prefilledAddresses;
   final LocationService _locationService = LocationService();
+  final _planKey = GlobalKey<PlanPageState>();
 
   @override
   void initState() {
@@ -123,19 +123,15 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _openPlanWithAddresses(List<Address> addresses) {
-    setState(() {
-      _prefilledAddresses = addresses;
-      _currentIndex = 1;
-    });
+    _planKey.currentState?.loadAddresses(addresses);
+    setState(() => _currentIndex = 1);
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
       const HomePage(),
-      PlanPage(currentLocation: _currentLocation,
-        prefilledAddresses: _prefilledAddresses,
-      ),
+      PlanPage(key: _planKey, currentLocation: _currentLocation),
       SavedPage(onOpenPlan: _openPlanWithAddresses),
     ];
 
