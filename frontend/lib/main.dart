@@ -223,11 +223,24 @@ class _NavItem extends StatelessWidget {
       onTap: () => onTap(index),
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Icon(
-          icon,
-          color: selected ? Colors.white : Colors.white38,
-          size: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: selected ? Colors.white : Colors.white38,
+              size: 24, // material design 3-storlek på ikonen.
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                color: selected ? Colors.white : Colors.white38,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400, //textstorlek i enlighet med m3-guidelines.
+              ),
+            ),
+          ],
         ),
       ),
     );
